@@ -1,10 +1,16 @@
-- 👋 Hi, I’m @OsuGerman
-- 👀 I’m interested in Osu
-- 🌱 I’m currently learning ...
-- 💞️ I’m looking to collaborate on ...
-- 📫 How to reach me: Discord --> Osu German#0001
+# Osu Profile Checker
 
-<!---
-OsuGerman/OsuGerman is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-You can click the Preview link to take a look at your changes.
---->
+This repository contains a small Python tool to fetch and analyze osu! player profiles using the public API.
+
+## Usage
+1. Install the dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+2. Set the `OSU_API_KEY` environment variable with your osu! API key.
+3. Run `python osu_profile_checker.py` and enter a username when prompted.
+
+The script reports basic profile stats, a rough improvement rate, the favourite beatmap creator and aggregated metrics from the player's best scores.
+
+## Building a Windows executable
+Run `build_exe.bat` to create a standalone `.exe` with PyInstaller. The output is placed inside the `dist` folder.
