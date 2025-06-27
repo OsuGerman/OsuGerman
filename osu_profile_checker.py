@@ -4,6 +4,8 @@ from collections import Counter
 from datetime import datetime
 
 import requests
+import tkinter as tk
+from tkinter import messagebox
 
 API_URL_USER = "https://osu.ppy.sh/api/get_user"
 API_URL_USER_BEST = "https://osu.ppy.sh/api/get_user_best"
@@ -184,6 +186,33 @@ def analyze_strengths(user: dict) -> list[str]:
     return strengths
 
 
+def format_user_profile(
+    user: dict,
+    improvement: float,
+    strengths: list[str],
+    favorite_mapper: str,
+    best_analysis: dict,
+) -> str:
+    """Return formatted profile information."""
+    lines = [
+        f"Username: {user.get('username')}",
+        f"Performance Points: {user.get('pp_raw')}",
+        f"Play count: {user.get('playcount')}",
+        f"Level: {user.get('level')}",
+        f"Ranked score: {user.get('ranked_score')}",
+        f"Improvement rate: {improvement:.2f} pp/day",
+        f"Favourite mapper: {favorite_mapper}",
+        f"Average star rating: {best_analysis['average_sr']:.2f}",
+        f"Avg AR/OD: {best_analysis['average_ar']:.1f}/{best_analysis['average_od']:.1f}",
+        f"Average accuracy on best plays: {best_analysis['average_accuracy']:.2f}%",
+        f"Most used mod: {best_analysis['most_used_mod']}",
+    ]
+    if strengths:
+        lines.append("Stärken:")
+        lines.extend(f"- {s}" for s in strengths)
+    return "\n".join(lines)
+
+
 def print_user_profile(
     user: dict,
     improvement: float,
@@ -192,44 +221,55 @@ def print_user_profile(
     best_analysis: dict,
 ) -> None:
     """Pretty print the profile information and analysis."""
-    print(f"Username: {user.get('username')}")
-    print(f"Performance Points: {user.get('pp_raw')}")
-    print(f"Play count: {user.get('playcount')}")
-    print(f"Level: {user.get('level')}")
-    print(f"Ranked score: {user.get('ranked_score')}")
-    print(f"Improvement rate: {improvement:.2f} pp/day")
-    print(f"Favourite mapper: {favorite_mapper}")
-    print(f"Average star rating: {best_analysis['average_sr']:.2f}")
-    print(
-        f"Avg AR/OD: {best_analysis['average_ar']:.1f}/{best_analysis['average_od']:.1f}"
-    )
-    print(f"Average accuracy on best plays: {best_analysis['average_accuracy']:.2f}%")
-    print(f"Most used mod: {best_analysis['most_used_mod']}")
-    if strengths:
-        print("Stärken:")
-        for s in strengths:
-            print(f"- {s}")
+    print(format_user_profile(user, improvement, strengths, favorite_mapper, best_analysis))
 
 
-def main(argv: list[str]) -> None:
-    if len(argv) == 2:
-        username = argv[1]
-    else:
-        username = input("Enter your osu! username: ").strip()
-        if not username:
-            print("No username provided. Exiting.")
-            sys.exit(1)
-    try:
-        user = get_osu_user(username)
-    except ValueError:
-        print(f"User '{username}' nicht gefunden.")
-        sys.exit(1)
+def run_analysis(username: str) -> str:
+    """Fetch data and return formatted profile information."""
+    user = get_osu_user(username)
     best_scores = get_user_best(username)
     favorite = find_favorite_mapper(best_scores)
     improvement = compute_improvement_rate(user)
     strengths = analyze_strengths(user)
     best_analysis = analyze_best_scores(best_scores)
-    print_user_profile(user, improvement, strengths, favorite, best_analysis)
+    return format_user_profile(user, improvement, strengths, favorite, best_analysis)
+
+
+def run_gui() -> None:
+    """Start a simple GUI to prompt for a username and display results."""
+
+    def on_ok() -> None:
+        username = entry.get().strip()
+        if not username:
+            messagebox.showwarning("Fehler", "Bitte einen Nutzernamen eingeben.")
+            return
+        try:
+            info = run_analysis(username)
+        except ValueError:
+            messagebox.showinfo("Nicht gefunden", f"User '{username}' nicht gefunden.")
+            return
+        messagebox.showinfo("osu! Profil", info)
+
+    root = tk.Tk()
+    root.title("osu! Profile Checker")
+    tk.Label(root, text="Benutzername:").pack(padx=10, pady=(10, 0))
+    entry = tk.Entry(root)
+    entry.pack(padx=10, pady=5)
+    tk.Button(root, text="OK", command=on_ok).pack(pady=(0, 10))
+    root.mainloop()
+
+
+def main(argv: list[str]) -> None:
+    if len(argv) == 2:
+        username = argv[1]
+        try:
+            info = run_analysis(username)
+        except ValueError:
+            print(f"User '{username}' nicht gefunden.")
+            sys.exit(1)
+        print(info)
+    else:
+        run_gui()
 
 
 if __name__ == "__main__":
