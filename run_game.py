@@ -6,10 +6,13 @@ import os
 import sys
 import json
 import glob
+import traceback
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-if not os.environ.get('SDL_AUDIODRIVER'):
+if sys.platform == 'win32':
+    pass
+elif not os.environ.get('SDL_AUDIODRIVER'):
     try:
         import subprocess
         r = subprocess.run(['aplay', '-l'], capture_output=True, timeout=2)
@@ -39,7 +42,20 @@ def ensure_dirs():
 def ensure_demo():
     demo_map = os.path.join(MAP_DIR, 'demo.json')
     demo_wav = os.path.join(SONG_DIR, 'demo_beat.wav')
+    need_regen = False
     if not os.path.exists(demo_map):
+        need_regen = True
+    else:
+        try:
+            with open(demo_map) as f:
+                d = json.load(f)
+            af = d.get('audio_file', '')
+            if not os.path.exists(af):
+                need_regen = True
+        except Exception:
+            need_regen = True
+
+    if need_regen:
         if not os.path.exists(demo_wav):
             generate_demo_wav(demo_wav, bpm=99.4, duration_s=45)
         notes = generate_demo_beatmap_notes(bpm=99.4, duration_s=45)
@@ -64,6 +80,8 @@ def load_map_list() -> list[dict]:
         try:
             with open(path) as f:
                 d = json.load(f)
+            af = d.get('audio_file', '')
+            has_audio = os.path.exists(af)
             maps.append({
                 'path': path,
                 'id': d.get('id', ''),
@@ -72,10 +90,15 @@ def load_map_list() -> list[dict]:
                 'bpm': d.get('bpm', 0),
                 'difficulty': d.get('difficulty', 5),
                 'note_count': len(d.get('notes', [])),
+                'has_audio': has_audio,
             })
         except Exception:
             pass
     return maps
+
+
+def point_in_rect(px: int, py: int, rx: int, ry: int, rw: int, rh: int) -> bool:
+    return rx <= px <= rx + rw and ry <= py <= ry + rh
 
 
 def main():
@@ -97,9 +120,23 @@ def main():
     editor: Editor | None = None
     last_result: dict | None = None
 
+    def do_start_game(map_info: dict):
+        nonlocal game_state, state
+        bm = Beatmap(map_info['path'])
+        af = bm.audio_file
+        if not os.path.isabs(af):
+            af = os.path.join(os.getcwd(), af)
+        if not os.path.exists(af):
+            print(f"Audio nicht gefunden: {af}")
+            return
+        load_music(af)
+        game_state = GameState(bm, renderer)
+        state = 'game'
+
     running = True
     while running:
         dt = clock.tick(FPS) / 1000.0
+        w, h = screen.get_size()
         keys_just = set()
 
         for event in pygame.event.get():
@@ -129,6 +166,47 @@ def main():
                         editor.test_play = False
                 continue
 
+            # --- Mouse clicks ---
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+
+                if state == 'menu':
+                    for i in range(3):
+                        bx = w // 2 - 120
+                        by = h // 2 + i * 60 - 20
+                        if point_in_rect(mx, my, bx, by, 240, 48):
+                            menu_sel = i
+                            if i == 0:
+                                map_list = load_map_list()
+                                select_sel = 0
+                                state = 'select'
+                            elif i == 1:
+                                editor = Editor(screen)
+                                state = 'editor'
+                            break
+
+                elif state == 'select':
+                    y_start = 90
+                    for i, m in enumerate(map_list):
+                        cy = y_start + i * 75
+                        if point_in_rect(mx, my, 30, cy, w - 60, 65):
+                            if select_sel == i:
+                                do_start_game(m)
+                            else:
+                                select_sel = i
+                            break
+
+                elif state == 'result' and last_result:
+                    if point_in_rect(mx, my, w // 2 - 200, 480, 180, 48):
+                        for m in map_list:
+                            if m['title'] == last_result.get('title', ''):
+                                do_start_game(m)
+                                break
+                    elif point_in_rect(mx, my, w // 2 + 20, 480, 180, 48):
+                        state = 'select'
+                        map_list = load_map_list()
+
+            # --- Keyboard ---
             if event.type == pygame.KEYDOWN:
                 keys_just.add(event.key)
 
@@ -159,7 +237,7 @@ def main():
                             select_sel = (select_sel + 1) % len(map_list)
                     elif event.key == pygame.K_RETURN:
                         if map_list:
-                            _start_game(map_list[select_sel], screen, renderer)
+                            do_start_game(map_list[select_sel])
                     elif event.key == pygame.K_e:
                         if map_list:
                             bm = Beatmap(map_list[select_sel]['path'])
@@ -197,21 +275,8 @@ def main():
                             title = last_result.get('title', '')
                             for m in map_list:
                                 if m['title'] == title:
-                                    _start_game(m, screen, renderer)
+                                    do_start_game(m)
                                     break
-
-        def _start_game(map_info: dict, scr: pygame.Surface, ren: Renderer):
-            nonlocal game_state, state
-            bm = Beatmap(map_info['path'])
-            af = bm.audio_file
-            if not os.path.isabs(af):
-                af = os.path.join(os.getcwd(), af)
-            if not os.path.exists(af):
-                print(f"Audio nicht gefunden: {af}")
-                return
-            load_music(af)
-            game_state = GameState(bm, ren)
-            state = 'game'
 
         if state == 'game' and game_state:
             if not game_state.paused:
@@ -226,8 +291,7 @@ def main():
             editor.update()
 
         if state == 'menu':
-            btns = renderer.draw_menu()
-            w, h = screen.get_size()
+            renderer.draw_menu()
             sel_y = h // 2 + menu_sel * 60 - 20
             pygame.draw.rect(screen, WHITE, (w // 2 - 122, sel_y - 2, 244, 52), 2, border_radius=14)
 
@@ -249,4 +313,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+        input("\nFehler! Drücke ENTER zum Schließen...")
