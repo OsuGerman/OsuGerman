@@ -109,7 +109,6 @@ class GameplayManager:
             self.beat_pulse = 1.0
         self.beat_pulse = max(0, self.beat_pulse - dt * 5)
         self.screen_flash = max(0, self.screen_flash - dt * 8)
-        self._judgement_timer = max(0, self._judgement_timer - dt)
 
         self.spawn_mgr.update(st)
 
