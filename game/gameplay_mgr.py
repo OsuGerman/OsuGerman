@@ -112,6 +112,7 @@ class GameplayManager:
             self.state.on_judgement(Judgement.MISS)
             if self._renderer:
                 self._renderer.add_popup('MISS', (255, 82, 82), obj.lane)
+                self._renderer.trigger_miss(obj.lane)
 
         inputs = self.input_buffer.drain()
         for inp in inputs:

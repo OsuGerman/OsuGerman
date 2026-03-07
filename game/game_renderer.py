@@ -41,7 +41,7 @@ class Pop:
 class GameRenderer:
     def __init__(s, scr: pygame.Surface):
         s.scr=scr; s.parts: list[Particle]=[]; s.pops: list[Pop]=[]
-        s.shake=0.; s.cf=0; s.ct=0.; s.ca=''; s.cat=0.
+        s.shake=0.; s.cf=0; s.ct=0.; s.ca=''; s.cat=0.; s.char_state='run'; s.char_hurt_t=0.
         s._fc: dict[tuple,pygame.font.Font]={}
         s._gc: dict[tuple,pygame.Surface]={}
         s._bgc=None; s._bgsz=(0,0); s._scroll=0.
@@ -78,13 +78,18 @@ class GameRenderer:
         w,h=s.scr.get_size()
         hx=w*HX; y=h*AY if lane==Lane.AIR else h*GY
         col=JUDGEMENT_COLORS[j]
-        n=12+wlv*5
+        n=14+wlv*6
         s.spawn_particles(hx,y,col,n,5+wlv*2)
         if j==Judgement.PERFECT:
-            for _ in range(4): s.parts.append(Particle(hx+random.randint(-15,15),y+random.randint(-15,15),_C['gold'],random.uniform(3,8),'spark'))
+            for _ in range(6): s.parts.append(Particle(hx+random.randint(-20,20),y+random.randint(-20,20),_C['gold'],random.uniform(3,9),'spark'))
         s.add_popup(j.value+'!',col,lane)
-        s.ca='air' if lane==Lane.AIR else 'gnd'; s.cat=0.15
-        s.shake=6 if j==Judgement.PERFECT else 3
+        s.ca='air' if lane==Lane.AIR else 'gnd'; s.cat=0.18
+        s.char_state='air_attack' if lane==Lane.AIR else 'ground_attack'
+        s.shake=7 if j==Judgement.PERFECT else 3.5
+
+    def trigger_miss(s, lane):
+        s.char_state='hurt'; s.char_hurt_t=0.3
+        s.shake=2
 
     def render_frame(s,gm: GameplayManager):
         w,h=s.scr.get_size()
@@ -298,35 +303,89 @@ class GameRenderer:
             sx=x+int(math.cos(a)*(r+8)); sy=int(y)+int(math.sin(a)*(r+8))
             pygame.draw.circle(s.scr,_C['gold'],(sx,sy),3)
 
-    # ── Character ──
+    # ── Character with State Machine ──
     def _character(s,w,h,wlv):
         cx=int(w*HX); by=int(h*GY+R+8)
         bob=int(math.sin(s.cf*math.pi/2)*4)
-        jmp=int(-60*(s.cat/0.15)) if s.ca=='air' and s.cat>0 else 0
-        y=by+bob+jmp
-        if wlv>0:
-            ar=22+wlv*7; ac=WC[min(wlv,len(WC)-1)]
-            aura=pygame.Surface((ar*2,ar*2),pygame.SRCALPHA)
-            pygame.draw.circle(aura,(*ac,12+wlv*10),(ar,ar),ar)
-            s.scr.blit(aura,(cx-ar,y-38-ar))
-        pygame.draw.ellipse(s.scr,_C['ground'],(cx-18,y-62,36,40))
-        for dx,dy in [(-6,-47),(8,-47)]:
-            pygame.draw.circle(s.scr,_C['white'],(cx+dx,y+dy),5)
-            pygame.draw.circle(s.scr,(15,5,30),(cx+dx+1,y+dy),3)
-        pygame.draw.arc(s.scr,_C['ground_d'],(cx-6,y-38,14,8),0.1,math.pi-0.1,2)
-        pygame.draw.rect(s.scr,_C['accent'],(cx-11,y-24,22,24),border_radius=4)
-        ph=s.cf*math.pi/2
-        for dx,si in [(-6,1),(6,-1)]:
-            ex=cx+dx+int(math.sin(ph*si)*9)
-            pygame.draw.line(s.scr,_C['accent'],(cx+dx,y),(ex,y+16),5)
-        if s.cat>0:
-            ext=int((0.15-s.cat)/0.15*28)
-            wc=WC[min(wlv,len(WC)-1)]; th=3+wlv; ln=28+wlv*9+ext
-            if s.ca=='gnd':
-                pygame.draw.line(s.scr,wc,(cx+12,y-20),(cx+ln,y-24),th)
-                if wlv>=2: pygame.draw.circle(s.scr,wc,(cx+ln,y-24),4+wlv)
-            elif s.ca=='air':
-                pygame.draw.line(s.scr,wc,(cx+2,y-32),(cx+ln,y-55-ext),th)
+        jmp=0; tilt=0; flash_col=None
+
+        # State transitions
+        if s.char_hurt_t > 0:
+            s.char_hurt_t -= 0.016
+            s.char_state = 'hurt'
+            tilt = int(math.sin(s.char_hurt_t * 40) * 4)
+            flash_col = _C['red']
+        elif s.cat > 0:
+            if s.ca == 'air':
+                s.char_state = 'air_attack'
+                jmp = int(-65 * (s.cat / 0.18))
+            else:
+                s.char_state = 'ground_attack'
+        else:
+            s.char_state = 'run'
+
+        y = by + bob + jmp
+
+        # Weapon aura
+        if wlv > 0:
+            ar = 24 + wlv * 8; ac = WC[min(wlv, len(WC)-1)]
+            aura = pygame.Surface((ar*2, ar*2), pygame.SRCALPHA)
+            pygame.draw.circle(aura, (*ac, 10 + wlv * 12), (ar, ar), ar)
+            s.scr.blit(aura, (cx-ar, y-38-ar))
+
+        # Body with tilt
+        bx = cx + tilt
+
+        # Head
+        head_col = flash_col or _C['ground']
+        pygame.draw.ellipse(s.scr, head_col, (bx-18, y-62, 36, 40))
+
+        # Eyes
+        eye_state = 'x' if s.char_state == 'hurt' else '>' if 'attack' in s.char_state else 'o'
+        for dx in (-6, 8):
+            if eye_state == 'x':
+                pygame.draw.line(s.scr, _C['white'], (bx+dx-3, y-50), (bx+dx+3, y-44), 2)
+                pygame.draw.line(s.scr, _C['white'], (bx+dx+3, y-50), (bx+dx-3, y-44), 2)
+            elif eye_state == '>':
+                pygame.draw.circle(s.scr, _C['white'], (bx+dx, y-47), 5)
+                pygame.draw.circle(s.scr, (15,5,30), (bx+dx+2, y-47), 3)
+            else:
+                pygame.draw.circle(s.scr, _C['white'], (bx+dx, y-47), 5)
+                pygame.draw.circle(s.scr, (15,5,30), (bx+dx+1, y-47), 3)
+
+        # Mouth
+        if s.char_state == 'hurt':
+            pygame.draw.arc(s.scr, _C['ground_d'], (bx-5, y-42, 12, 8), 3.3, 6.0, 2)
+        elif 'attack' in s.char_state:
+            pygame.draw.ellipse(s.scr, (15,5,30), (bx-4, y-38, 10, 6))
+        else:
+            pygame.draw.arc(s.scr, _C['ground_d'], (bx-5, y-38, 12, 7), 0.1, math.pi-0.1, 2)
+
+        # Body
+        body_col = flash_col or _C['accent']
+        pygame.draw.rect(s.scr, body_col, (bx-12, y-24, 24, 26), border_radius=5)
+
+        # Legs (animated)
+        ph = s.cf * math.pi / 2
+        speed = 1.5 if 'attack' in s.char_state else 1.0
+        for dx, si in [(-6, 1), (6, -1)]:
+            ex = bx + dx + int(math.sin(ph * si * speed) * 10)
+            pygame.draw.line(s.scr, body_col, (bx+dx, y+2), (ex, y+18), 5)
+
+        # Weapon attack
+        if s.cat > 0:
+            ext = int((0.18 - s.cat) / 0.18 * 30)
+            wc = WC[min(wlv, len(WC)-1)]; th = 3 + wlv; ln = 30 + wlv * 10 + ext
+            if s.ca == 'gnd':
+                pygame.draw.line(s.scr, wc, (bx+14, y-20), (bx+ln, y-24), th)
+                if wlv >= 1:
+                    trail = pygame.Surface((ln, 20), pygame.SRCALPHA)
+                    pygame.draw.arc(trail, (*wc, 80), (0, 0, ln, 20), 0, math.pi, th)
+                    s.scr.blit(trail, (bx+14, y-34))
+                if wlv >= 2: pygame.draw.circle(s.scr, wc, (bx+ln, y-24), 5+wlv)
+            elif s.ca == 'air':
+                pygame.draw.line(s.scr, wc, (bx+4, y-34), (bx+ln, y-58-ext), th)
+                if wlv >= 2: pygame.draw.circle(s.scr, wc, (bx+ln, y-58-ext), 5+wlv)
 
     # ── Particles + Popups ──
     def _draw_parts(s):

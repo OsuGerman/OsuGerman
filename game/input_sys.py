@@ -43,12 +43,18 @@ class InputBuffer:
 
     def _perf_to_song_ms(self) -> float:
         """Current time relative to song start, in ms."""
-        return (_time.perf_counter() - self._start_perf) * 1000.0
+        if self._start_perf <= 0:
+            return 0.0
+        return max(0, (_time.perf_counter() - self._start_perf) * 1000.0)
 
     def capture(self, key: int):
         """Called immediately when a KEYDOWN event is received.
         Timestamps the input RIGHT NOW, not when gameplay processes it."""
-        now_ms = self._perf_to_song_ms()
+        now_perf = _time.perf_counter()
+        if self._start_perf <= 0:
+            return  # Song not started yet
+
+        now_ms = max(0, (now_perf - self._start_perf) * 1000.0)
 
         if key in self.ground_keys:
             lane = Lane.GROUND
