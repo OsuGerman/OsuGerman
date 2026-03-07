@@ -16,7 +16,9 @@ if sys.platform != 'win32' and not os.environ.get('SDL_AUDIODRIVER'):
 
 import pygame
 from game.config import Settings
-from game.audio import (init_audio, load_music, stop_music, set_music_volume, set_sfx_volume,
+from game.audio import (init_audio, load_music, stop_music, play_music,
+                        pause_music, unpause_music,
+                        set_music_volume, set_sfx_volume,
                         generate_demo_wav, generate_demo_beatmap_notes)
 from game.framework import Application
 from game.screens import MenuScreen, SelectScreen, SettingsScreen, ResultScreen
@@ -239,11 +241,9 @@ class RhythmDash(Application):
                             self.go_select()
                         elif gs.paused:
                             gs.paused = False
-                            gs._pause_offset += pygame.time.get_ticks() - gs._pause_start
                             unpause_music()
                         elif gs.started:
                             gs.paused = True
-                            gs._pause_start = pygame.time.get_ticks()
                             pause_music()
                     elif event.key == pygame.K_q and gs.paused:
                         stop_music()

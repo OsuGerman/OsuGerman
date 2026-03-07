@@ -13,7 +13,8 @@ from .framework import Screen, Container, Text, Button, Slider, Drawable, Cursor
 from .config import *
 from .beatmap import Beatmap
 from .audio import (init_audio, load_music, stop_music, play_music, pause_music,
-                    unpause_music, set_music_volume, generate_demo_wav, generate_demo_beatmap_notes, play_sfx)
+                    unpause_music, set_music_volume, set_sfx_volume,
+                    generate_demo_wav, generate_demo_beatmap_notes, play_sfx)
 
 MAP_DIR = 'maps'
 SONG_DIR = 'songs'

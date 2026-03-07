@@ -3,7 +3,7 @@ import math
 import pygame
 from .config import *
 from .beatmap import Beatmap, Note, LANE_AIR, LANE_GROUND
-from .audio import play_sfx, is_music_playing
+from .audio import play_sfx, is_song_playing, get_song_time_ms
 from .renderer import Renderer
 
 KEY_COOLDOWN_MS = 75
@@ -53,16 +53,12 @@ class GameState:
         self.failed = False
         self.result: dict | None = None
         self._music_started = False
-        self._play_start_ticks = 0
-        self._pause_offset = 0
-        self._pause_start = 0
 
     @property
     def game_time_ms(self) -> float:
         if not self._music_started:
             return 0
-        elapsed = pygame.time.get_ticks() - self._play_start_ticks - self._pause_offset
-        return max(0, elapsed - self.settings.audio_offset)
+        return max(0, get_song_time_ms() - self.settings.audio_offset)
 
     def update(self, dt: float, keys_pressed: set[int]):
         if self.finished or self.failed:
@@ -77,7 +73,6 @@ class GameState:
                 from .audio import play_music
                 play_music(0)
                 self._music_started = True
-                self._play_start_ticks = pygame.time.get_ticks()
             return
 
         time = self.game_time_ms
@@ -122,7 +117,7 @@ class GameState:
 
         self.weapon_level = min(4, self.combo // 15)
 
-        if self._music_started and not is_music_playing():
+        if self._music_started and not is_song_playing():
             all_done = all(n.hit or n.missed for n in self.notes)
             if all_done or time > (self.beatmap.duration_ms + 2000):
                 self._finish()
