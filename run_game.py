@@ -130,10 +130,10 @@ class App:
             af = ap
         else:
             try:
-                chart = load_chart(path) if 'data/' in path else chart_from_legacy(path)
+                chart = load_chart(path)  # load_chart handles both old and new format
             except Exception as e:
                 print(f"Chart error: {e}"); return
-            af = None  # will be resolved below
+            af = None
             bpm = None
 
         # Find audio file (skip if already set by osu! path)
@@ -215,23 +215,34 @@ class App:
             dest = os.path.join(SONG_DIR, fname)
             if not os.path.exists(dest): shutil.copy2(path, dest)
             dest = os.path.abspath(dest)
-            from game.mapper import generate_chart
-            try:
-                data = generate_chart(dest, difficulty=5, diff_id='normal')
-                data['audio_file'] = dest
-                mp = os.path.join(MAP_DIR, f"{data['songId']}_auto.json")
-                json.dump(data, open(mp,'w'), indent=2)
-                bm = Beatmap(mp)
-            except:
-                bm = Beatmap(); bm.id = f"map_{pygame.time.get_ticks()}"
-                bm.title = os.path.splitext(fname)[0]; bm.audio_file = dest; bm.bpm = 120
-            self._editor_active = True; self._game_active = False; self.current_screen = None
-            self.editor = Editor(self.screen, bm)
-            try:
-                load_music(dest); self.editor.audio_loaded = True; self.editor.audio_path = dest
-                import soundfile as sf; self.editor.music_len_ms = sf.info(dest).duration * 1000
-            except: pass
-        except Exception as e: print(f"Import error: {e}")
+
+            from game.mapper import generate_chart as gen_map
+            print(f"[Import] Analysiere: {dest}")
+            data = gen_map(dest, difficulty=5, diff_id='normal')
+            data['audio_file'] = dest
+            n_obj = len(data.get('objects', []))
+            print(f"[Import] Erzeugt: {n_obj} Objekte, BPM={data.get('_meta',{}).get('bpm','?')}")
+
+            if n_obj == 0:
+                print("[Import] WARNUNG: 0 Objekte erzeugt!")
+                return
+
+            mp = os.path.join(MAP_DIR, f"{data['songId']}_auto.json")
+            with open(mp, 'w') as f:
+                json.dump(data, f, indent=2)
+            print(f"[Import] Gespeichert: {mp}")
+
+            # Start game directly with the new map
+            map_info = {
+                'path': mp, 'id': data['songId'], 'title': data['songId'],
+                'artist': 'Auto-Generated', 'bpm': data.get('_meta', {}).get('bpm', 120),
+                'difficulty': 5, 'note_count': n_obj, 'has_audio': True,
+                'audio_path': dest,
+            }
+            self.start_game(map_info)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            print(f"[Import] Error: {e}")
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
