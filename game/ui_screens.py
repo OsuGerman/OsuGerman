@@ -4,6 +4,7 @@ import os, json, glob, math, random
 import pygame
 from .ui_theme import C, F, S, draw_bg, draw_stars, panel, glow_rect, text, button, slider, badge
 from .audio import set_music_volume, set_sfx_volume, play_sfx
+from .ui_sounds import play_ui
 
 MAP_DIR, SONG_DIR = 'maps', 'songs'
 
@@ -30,12 +31,60 @@ class Base:
 
     def _click(self, pos):
         for r, a in self._btns:
-            if r.collidepoint(pos): play_sfx('tick'); return a
+            if r.collidepoint(pos): play_ui('click'); return a
         return ''
 
     def _hovering(self, pos): return any(r.collidepoint(pos) for r, _ in self._btns)
     def _cursor(self, pos):
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if self._hovering(pos) else pygame.SYSTEM_CURSOR_ARROW)
+
+
+# ══════════════════════════════
+# SPLASH SCREEN
+# ══════════════════════════════
+
+class SplashScreen(Base):
+    def __init__(self, scr):
+        super().__init__(scr)
+        self._timer = 0.0
+        self._phase = 0  # 0=fade in, 1=hold, 2=fade out
+
+    def update(self, dt, events, mouse):
+        self._t += dt
+        self._timer += dt
+        w, h = self.scr.get_size()
+
+        # Background
+        self.scr.fill((6, 2, 18))
+
+        alpha = 0
+        if self._timer < 0.8:
+            alpha = int(255 * self._timer / 0.8)
+        elif self._timer < 2.2:
+            alpha = 255
+        elif self._timer < 3.0:
+            alpha = int(255 * (1 - (self._timer - 2.2) / 0.8))
+        else:
+            return SR('done')
+
+        # Logo
+        logo = F.hero().render("Rhythm Dash", True, C.PRIMARY)
+        logo.set_alpha(alpha)
+        sh = F.hero().render("Rhythm Dash", True, (0, 0, 0))
+        sh.set_alpha(alpha // 3)
+        self.scr.blit(sh, (w // 2 - logo.get_width() // 2 + 3, h // 2 - 40 + 3))
+        self.scr.blit(logo, (w // 2 - logo.get_width() // 2, h // 2 - 40))
+
+        sub = F.cap().render("Ein Rhythm-Action-Game", True, C.TEXT_3)
+        sub.set_alpha(alpha)
+        self.scr.blit(sub, (w // 2 - sub.get_width() // 2, h // 2 + 30))
+
+        # Skip
+        for ev in events:
+            if ev.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                return SR('done')
+
+        return SR()
 
 
 # ══════════════════════════════

@@ -22,8 +22,9 @@ from game.gameplay_mgr import GameplayManager
 from game.game_renderer import GameRenderer
 from game.chart import load_chart, chart_from_legacy
 from game.editor import Editor
-from game.ui_screens import (MainMenuScreen, SongSelectScreen, SettingsScreen,
+from game.ui_screens import (SplashScreen, MainMenuScreen, SongSelectScreen, SettingsScreen,
                              ResultsScreen, ScreenResult, load_all_maps)
+from game.ui_sounds import init_ui_sounds
 
 MAP_DIR, SONG_DIR = 'maps', 'songs'
 
@@ -50,12 +51,13 @@ class App:
         self.screen = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
         pygame.display.set_caption("Rhythm Dash")
         init_audio()
+        init_ui_sounds()
         set_music_volume(self.settings.music_volume)
         set_sfx_volume(self.settings.sfx_volume)
         os.makedirs(MAP_DIR, exist_ok=True)
         os.makedirs(SONG_DIR, exist_ok=True)
         self._ensure_demo()
-        self.go_menu()
+        self.current_screen = SplashScreen(self.screen)
 
     def _ensure_demo(self):
         dm, dw = os.path.join(MAP_DIR,'demo.json'), os.path.join(SONG_DIR,'demo_beat.wav')
@@ -288,7 +290,8 @@ class App:
 
     def _handle(self, r: ScreenResult):
         a = r.action
-        if a == 'play': self.go_select()
+        if a == 'done': self.go_menu()
+        elif a == 'play': self.go_select()
         elif a == 'editor': self.go_editor()
         elif a == 'import': self.do_import()
         elif a == 'settings': self.go_settings()

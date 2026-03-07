@@ -1,7 +1,10 @@
 """Central GameplayManager — timestamped input, audio-clock timing, immediate feedback."""
 from __future__ import annotations
 import time as _time
+import random, math
 import pygame
+
+HX = 0.15
 from .types import (GameplayState, ChartData, Lane, ActionType,
                     Judgement, ResultData, JUDGEMENT_COLORS)
 from .entities import GameplayObject, SpawnManager
@@ -156,6 +159,16 @@ class GameplayManager:
 
         if self._renderer:
             self._renderer.trigger_hit(lane, judgement, self.state.weapon_level)
+            c = self.state.combo
+            if c in (25, 50, 100, 200, 500):
+                self._renderer.add_popup(f'{c}x COMBO!', (255, 210, 50), lane)
+                self.screen_flash = 0.5
+                w, h = self._renderer.scr.get_size()
+                for _ in range(20):
+                    self._renderer.spawn_particles(
+                        w * HX + random.randint(-40, 40),
+                        h * 0.5 + random.randint(-60, 60),
+                        (255, 210, 50), 8, 8)
 
     def toggle_pause(self):
         if self.paused:
