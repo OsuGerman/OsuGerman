@@ -1,438 +1,405 @@
-"""Complete gameplay renderer — renders GameplayManager state directly."""
+"""High-quality gameplay renderer — layered, cached, polished."""
 from __future__ import annotations
-import math
-import random
+import math, random
 import pygame
-from .types import (Lane, ObjectType, ObjectState, Judgement, JUDGEMENT_COLORS,
-                    ActionType, GameplayState)
+from .types import Lane, ObjectType, ObjectState, Judgement, JUDGEMENT_COLORS
 from .entities import GameplayObject
 from .gameplay_mgr import GameplayManager
 
-NOTE_R = 22
-HIT_X_RATIO = 0.15
-GROUND_Y = 0.68
-AIR_Y = 0.38
+R = 24
+HX = 0.15
+GY = 0.68
+AY = 0.38
 
-COL_BG = (10, 2, 30)
-COL_GROUND = (255, 77, 141)
-COL_GROUND_D = (200, 40, 100)
-COL_AIR = (0, 212, 255)
-COL_AIR_D = (0, 150, 190)
-COL_ACCENT = (224, 64, 251)
-COL_GOLD = (255, 215, 0)
-COL_WHITE = (255, 255, 255)
-COL_OBSTACLE = (255, 60, 60)
-COL_HOLD = (180, 120, 255)
-COL_MASH = (255, 180, 0)
-COL_HEAVY = (255, 50, 200)
-WEAPON_COLS = [COL_GOLD, (255, 180, 0), (255, 100, 50), COL_ACCENT, (0, 255, 200)]
+_C = {
+    'bg0': (6, 2, 18), 'bg1': (12, 5, 32), 'bg2': (20, 10, 48),
+    'ground': (255, 60, 130), 'ground_d': (180, 30, 80),
+    'air': (0, 210, 255), 'air_d': (0, 140, 190),
+    'accent': (200, 50, 240), 'gold': (255, 210, 50),
+    'green': (0, 220, 110), 'red': (255, 70, 70),
+    'hold': (170, 100, 255), 'obstacle': (255, 50, 50),
+    'mash': (255, 170, 30), 'heavy': (255, 40, 200),
+    'white': (255, 255, 255), 'text2': (180, 170, 210),
+    'text3': (100, 95, 130), 'panel': (20, 10, 48),
+}
+WC = [(255,210,50),(255,170,40),(255,100,50),(200,50,240),(0,255,200)]
 
 
 class Particle:
-    __slots__ = ('x','y','vx','vy','life','max_life','color','size')
-    def __init__(self, x, y, color, size=4):
-        a = random.uniform(0, math.tau)
-        s = random.uniform(1.5, 5)
-        self.x, self.y = x, y
-        self.vx, self.vy = math.cos(a)*s, math.sin(a)*s - 1.5
-        self.life = self.max_life = random.uniform(0.3, 0.6)
-        self.color, self.size = color, size
+    __slots__=('x','y','vx','vy','life','ml','col','sz','kind')
+    def __init__(s,x,y,col,sz=4,kind='dot'):
+        a=random.uniform(0,math.tau); sp=random.uniform(2,6)
+        s.x,s.y=x,y; s.vx=math.cos(a)*sp; s.vy=math.sin(a)*sp-2
+        s.life=s.ml=random.uniform(0.25,0.5); s.col=col; s.sz=sz; s.kind=kind
 
 
-class JudgePop:
-    __slots__ = ('text','color','x','y','life','scale')
-    def __init__(self, text, color, x, y):
-        self.text, self.color = text, color
-        self.x, self.y = x, y
-        self.life, self.scale = 0.8, 1.5
+class Pop:
+    __slots__=('txt','col','x','y','life','sc')
+    def __init__(s,t,c,x,y): s.txt,s.col,s.x,s.y=t,c,x,y; s.life=0.7; s.sc=1.6
 
 
 class GameRenderer:
-    def __init__(self, screen: pygame.Surface):
-        self.scr = screen
-        self.particles: list[Particle] = []
-        self.popups: list[JudgePop] = []
-        self.shake = 0.0
-        self.char_frame = 0
-        self.char_timer = 0.0
-        self.char_action = ''
-        self.char_action_t = 0.0
-        self._bg_cache: pygame.Surface | None = None
-        self._bg_size = (0, 0)
-        self._glow_cache: dict[tuple, pygame.Surface] = {}
-        self._stars = [(random.random(), random.random(), random.uniform(1, 3)) for _ in range(60)]
-        self._bg_scroll = 0.0
-        self._fonts: dict[str, pygame.font.Font] = {}
-        self._init_fonts()
+    def __init__(s, scr: pygame.Surface):
+        s.scr=scr; s.parts: list[Particle]=[]; s.pops: list[Pop]=[]
+        s.shake=0.; s.cf=0; s.ct=0.; s.ca=''; s.cat=0.
+        s._fc: dict[tuple,pygame.font.Font]={}
+        s._gc: dict[tuple,pygame.Surface]={}
+        s._bgc=None; s._bgsz=(0,0); s._scroll=0.
+        s._stars=[(random.random(),random.random(),random.uniform(0.8,2.5)) for _ in range(70)]
+        s._stars2=[(random.random(),random.random(),random.uniform(0.5,1.5)) for _ in range(30)]
 
-    def _init_fonts(self):
-        fn = 'segoe ui,arial,sans-serif'
-        for name, sz, bold in [('xs',12,False),('sm',15,False),('md',20,True),
-                                ('lg',36,True),('xl',52,True),('combo',48,True),
-                                ('count',80,True),('grade',110,True)]:
-            self._fonts[name] = pygame.font.SysFont(fn, sz, bold=bold)
+    def _f(s,sz,b=False):
+        k=(sz,b)
+        if k not in s._fc: s._fc[k]=pygame.font.SysFont('segoe ui,arial,sans-serif',sz,bold=b)
+        return s._fc[k]
 
-    def f(self, n: str) -> pygame.font.Font:
-        return self._fonts[n]
+    def update(s,dt):
+        s.shake*=0.82; s._scroll+=dt*50
+        s.ct+=dt
+        if s.ct>0.1: s.cf=(s.cf+1)%4; s.ct=0
+        if s.cat>0: s.cat-=dt
+        else: s.ca=''
+        for p in s.parts[:]:
+            p.x+=p.vx*dt*60; p.y+=p.vy*dt*60; p.vy+=0.12; p.life-=dt
+            if p.life<=0: s.parts.remove(p)
+        for j in s.pops[:]:
+            j.life-=dt; j.y-=dt*35; j.sc*=0.97
+            if j.life<=0: s.pops.remove(j)
 
-    def update(self, dt: float):
-        self.shake *= 0.85
-        self._bg_scroll += dt * 40
-        self.char_timer += dt
-        if self.char_timer > 0.12:
-            self.char_frame = (self.char_frame + 1) % 4
-            self.char_timer = 0
-        if self.char_action_t > 0:
-            self.char_action_t -= dt
-            if self.char_action_t <= 0:
-                self.char_action = ''
-        for p in self.particles[:]:
-            p.x += p.vx * dt * 60
-            p.y += p.vy * dt * 60
-            p.vy += 0.08
-            p.life -= dt
-            if p.life <= 0: self.particles.remove(p)
-        for j in self.popups[:]:
-            j.life -= dt
-            j.y -= dt * 30
-            j.scale *= 0.98
-            if j.life <= 0: self.popups.remove(j)
+    def spawn_particles(s,x,y,col,n=14,sz=5):
+        for _ in range(n): s.parts.append(Particle(x,y,col,random.uniform(2,sz)))
 
-    def render_frame(self, gm: GameplayManager):
-        w, h = self.scr.get_size()
-        self._draw_bg(w, h)
+    def add_popup(s,t,c,lane):
+        w,h=s.scr.get_size()
+        x=w*HX+70; y=(h*AY if lane==Lane.AIR else h*GY)-35
+        s.pops.append(Pop(t,c,x,y))
 
-        if gm.screen_flash > 0:
-            fl = pygame.Surface((w, h), pygame.SRCALPHA)
-            fl.fill((255, 255, 255, int(gm.screen_flash * 50)))
-            self.scr.blit(fl, (0, 0))
+    def trigger_hit(s,lane,j,wlv):
+        w,h=s.scr.get_size()
+        hx=w*HX; y=h*AY if lane==Lane.AIR else h*GY
+        col=JUDGEMENT_COLORS[j]
+        n=12+wlv*5
+        s.spawn_particles(hx,y,col,n,5+wlv*2)
+        if j==Judgement.PERFECT:
+            for _ in range(4): s.parts.append(Particle(hx+random.randint(-15,15),y+random.randint(-15,15),_C['gold'],random.uniform(3,8),'spark'))
+        s.add_popup(j.value+'!',col,lane)
+        s.ca='air' if lane==Lane.AIR else 'gnd'; s.cat=0.15
+        s.shake=6 if j==Judgement.PERFECT else 3
 
-        self._draw_lanes(w, h)
-        self._draw_receptors(w, h, gm.beat_pulse)
-        self._draw_entities(gm, w, h)
-        self._draw_character(w, h, gm.state.weapon_level)
-        self._draw_particles()
-        self._draw_popups()
-        self._draw_hud(w, h, gm)
+    def render_frame(s,gm: GameplayManager):
+        w,h=s.scr.get_size()
+        ox=int((random.random()-0.5)*s.shake*2)
+        oy=int((random.random()-0.5)*s.shake*2)
 
-        if not gm.started:
-            self._draw_countdown(w, h, gm.countdown)
-        if gm.paused:
-            self._draw_overlay(w, h, "PAUSE", "ESC: Fortsetzen   Q: Beenden", (200, 200, 200))
-        if gm.failed:
-            self._draw_overlay(w, h, "FAILED", "R: Nochmal   ESC: Zurück", (255, 82, 82))
+        s._bg(w,h)
+        s._parallax(w,h)
+
+        if gm.screen_flash>0:
+            fl=pygame.Surface((w,h),pygame.SRCALPHA)
+            fl.fill((255,255,255,int(min(60,gm.screen_flash*70))))
+            s.scr.blit(fl,(0,0))
+
+        s._platform(w,h)
+        s._lanes(w,h)
+        s._receptors(w,h,gm.beat_pulse)
+        s._entities(gm,w,h)
+        s._character(w,h,gm.state.weapon_level)
+        s._draw_parts()
+        s._draw_pops()
+        s._hud(w,h,gm)
+
+        if not gm.started: s._countdown(w,h,gm.countdown)
+        if gm.paused: s._overlay(w,h,"PAUSE","ESC fortsetzen · Q beenden",(200,200,200))
+        if gm.failed: s._overlay(w,h,"FAILED","R nochmal · ESC zurück",(255,70,70))
 
     # ── Background ──
-
-    def _draw_bg(self, w, h):
-        if self._bg_cache is None or self._bg_size != (w, h):
-            bg = pygame.Surface((w, h))
+    def _bg(s,w,h):
+        if s._bgc is None or s._bgsz!=(w,h):
+            bg=pygame.Surface((w,h))
             for y in range(h):
-                t = y / h
-                r, g, b = int(8 + t * 18), int(2 + t * 8), int(25 + t * 35)
-                pygame.draw.line(bg, (r, g, b), (0, y), (w, y))
-            self._bg_cache = bg
-            self._bg_size = (w, h)
-        self.scr.blit(self._bg_cache, (0, 0))
-        for xr, yr, sz in self._stars:
-            sx = int((xr * w + self._bg_scroll * (0.3 + sz * 0.2)) % w)
-            sy = int(yr * h)
-            pygame.draw.circle(self.scr, (min(255, int(40 + sz * 25)),)*3, (sx, sy), max(1, int(sz)))
-        line_y = int(h * GROUND_Y + NOTE_R + 10)
-        pygame.draw.line(self.scr, COL_GROUND_D, (0, line_y), (w, line_y), 2)
+                t=y/h
+                bg.fill((int(6+t*12),int(2+t*5),int(18+t*28)),(0,y,w,1))
+            s._bgc=bg; s._bgsz=(w,h)
+        s.scr.blit(s._bgc,(0,0))
 
-    def _draw_lanes(self, w, h):
-        for ratio in (AIR_Y, GROUND_Y):
-            lane_s = pygame.Surface((w, 50), pygame.SRCALPHA)
-            lane_s.fill((255, 255, 255, 5))
-            self.scr.blit(lane_s, (0, int(h * ratio) - 25))
+    def _parallax(s,w,h):
+        for xr,yr,sz in s._stars2:
+            sx=int((xr*w+s._scroll*0.3*sz)%w)
+            sy=int(yr*h)
+            pygame.draw.circle(s.scr,(20+int(sz*10),15+int(sz*8),40+int(sz*15)),(sx,sy),max(1,int(sz*1.5)))
+        for xr,yr,sz in s._stars:
+            sx=int((xr*w+s._scroll*(0.5+sz*0.3))%w)
+            sy=int(yr*h)
+            a=min(255,int(30+sz*25))
+            pygame.draw.circle(s.scr,(a,a,a+10),(sx,sy),max(1,int(sz)))
 
-    def _draw_receptors(self, w, h, pulse):
-        hx = int(w * HIT_X_RATIO)
-        scale = 1.0 + pulse * 0.3
-        alpha = int(100 + pulse * 155)
-        for y_r, col in [(AIR_Y, COL_AIR), (GROUND_Y, COL_GROUND)]:
-            y = int(h * y_r)
-            r = int(NOTE_R * scale)
-            ring = pygame.Surface((r*4, r*4), pygame.SRCALPHA)
-            pygame.draw.circle(ring, (*col, alpha), (r*2, r*2), r, 3)
-            pygame.draw.circle(ring, (*col, int(alpha*0.3)), (r*2, r*2), r+8, 2)
-            self.scr.blit(ring, (hx - r*2, y - r*2))
+    def _platform(s,w,h):
+        ly=int(h*GY+R+10)
+        gh=50
+        gs=pygame.Surface((w,gh),pygame.SRCALPHA)
+        for y in range(gh):
+            a=int(35*(1-y/gh))
+            pygame.draw.line(gs,(*_C['ground'],a),(0,y),(w,y))
+        s.scr.blit(gs,(0,ly))
+        pygame.draw.line(s.scr,_C['ground'],(0,ly),(w,ly),2)
+        for i in range(w//80+1):
+            lx=int((i*80-s._scroll*1.5)%w)
+            ls=pygame.Surface((1,gh),pygame.SRCALPHA)
+            ls.fill((255,255,255,10))
+            s.scr.blit(ls,(lx,ly))
+
+    def _lanes(s,w,h):
+        for yr in (AY,GY):
+            ls=pygame.Surface((w,56),pygame.SRCALPHA)
+            ls.fill((255,255,255,4))
+            s.scr.blit(ls,(0,int(h*yr)-28))
+
+    def _receptors(s,w,h,pulse):
+        hx=int(w*HX); sc=1+pulse*0.35; al=int(80+pulse*175)
+        for yr,col in [(AY,_C['air']),(GY,_C['ground'])]:
+            y=int(h*yr); r=int(R*sc)
+            rs=pygame.Surface((r*4,r*4),pygame.SRCALPHA)
+            pygame.draw.circle(rs,(*col,al),(r*2,r*2),r,3)
+            pygame.draw.circle(rs,(*col,int(al*0.25)),(r*2,r*2),r+10,2)
+            s.scr.blit(rs,(hx-r*2,y-r*2))
+            if pulse>0.3:
+                ps=pygame.Surface((r*6,r*6),pygame.SRCALPHA)
+                pygame.draw.circle(ps,(*col,int(pulse*25)),(r*3,r*3),r*3)
+                s.scr.blit(ps,(hx-r*3,y-r*3))
 
     # ── Entities ──
+    def _entities(s,gm,w,h):
+        hx=w*HX; st=gm.song_time; sp=gm.note_speed; bp=gm.beat_pulse
+        for o in gm.active_objects:
+            if o.resolved: continue
+            x=o.get_screen_x(st,hx,sp)
+            if x<-80 or x>w+80: continue
+            y=h*AY if o.lane==Lane.AIR else h*GY
+            pr=max(0,1-abs(o.hit_time-st)/500)
+            pu=1+bp*0.1
+            ix,iy=int(x),int(y)
+            t=o.obj_type
+            if t==ObjectType.GROUND_ENEMY: s._e_ground(ix,iy,pr,pu)
+            elif t==ObjectType.AIR_ENEMY: s._e_air(ix,iy,pr,pu)
+            elif t==ObjectType.HOLD_NOTE: s._e_hold(ix,iy,o,st,hx,sp)
+            elif t==ObjectType.OBSTACLE: s._e_obst(ix,iy,pr,pu)
+            elif t==ObjectType.MASH_CHAIN: s._e_mash(ix,iy,pr,pu)
+            elif t==ObjectType.HEAVY_ACCENT: s._e_heavy(ix,iy,pr,pu)
 
-    def _draw_entities(self, gm: GameplayManager, w, h):
-        hx = w * HIT_X_RATIO
-        st = gm.song_time
-        speed = gm.note_speed
-        for obj in gm.active_objects:
-            if obj.resolved:
-                continue
-            x = obj.get_screen_x(st, hx, speed)
-            if x < -80 or x > w + 80:
-                continue
-            y = h * AIR_Y if obj.lane == Lane.AIR else h * GROUND_Y
-            prox = max(0, 1 - abs(obj.hit_time - st) / 600)
-            pulse = 1 + gm.beat_pulse * 0.12
-            ix, iy = int(x), int(y)
+    def _glow(s,col,radius=R*2):
+        k=(col,radius)
+        if k not in s._gc:
+            sz=radius*2; sf=pygame.Surface((sz,sz),pygame.SRCALPHA)
+            for r in range(radius,radius//4,-2):
+                a=int(45*(1-r/radius))
+                pygame.draw.circle(sf,(*col,a),(radius,radius),r)
+            s._gc[k]=sf
+        return s._gc[k]
 
-            if obj.obj_type == ObjectType.GROUND_ENEMY:
-                self._draw_ground_enemy(ix, iy, prox, pulse)
-            elif obj.obj_type == ObjectType.AIR_ENEMY:
-                self._draw_air_enemy(ix, iy, prox, pulse)
-            elif obj.obj_type == ObjectType.HOLD_NOTE:
-                self._draw_hold(ix, iy, obj, st, hx, speed, prox)
-            elif obj.obj_type == ObjectType.OBSTACLE:
-                self._draw_obstacle(ix, iy, prox, pulse)
-            elif obj.obj_type == ObjectType.MASH_CHAIN:
-                self._draw_mash(ix, iy, prox, pulse)
-            elif obj.obj_type == ObjectType.HEAVY_ACCENT:
-                self._draw_heavy(ix, iy, prox, pulse)
+    def _e_ground(s,x,y,pr,pu):
+        r=int((R+pr*5)*pu)
+        g=s._glow(_C['ground'],R*2); g.set_alpha(int(25+pr*90))
+        s.scr.blit(g,(x-g.get_width()//2,y-g.get_height()//2))
+        pygame.draw.circle(s.scr,_C['ground'],(x,y),r)
+        pygame.draw.circle(s.scr,_C['ground_d'],(x,y),int(r*0.55))
+        eo=int(r*0.22); er=max(2,int(r*0.13))
+        for dx in (-eo,eo):
+            pygame.draw.circle(s.scr,_C['white'],(x+dx,y-eo),er)
+            pygame.draw.circle(s.scr,(20,8,35),(x+dx+1,y-eo),max(1,er-1))
+        mw=int(r*0.35)
+        pygame.draw.arc(s.scr,(20,8,35),(x-mw//2,y+int(r*0.05),mw,int(r*0.2)),3.14,6.28,2)
+        pygame.draw.circle(s.scr,_C['white'],(x,y),r,2)
 
-    def _glow(self, col):
-        if col not in self._glow_cache:
-            sz = NOTE_R * 4
-            s = pygame.Surface((sz, sz), pygame.SRCALPHA)
-            c = sz // 2
-            for r in range(NOTE_R*2, NOTE_R//2, -2):
-                a = int(50 * (1 - r/(NOTE_R*2)))
-                pygame.draw.circle(s, (*col, a), (c, c), r)
-            self._glow_cache[col] = s
-        return self._glow_cache[col]
+    def _e_air(s,x,y,pr,pu):
+        r=int((R+pr*5)*pu)
+        g=s._glow(_C['air'],R*2); g.set_alpha(int(25+pr*90))
+        s.scr.blit(g,(x-g.get_width()//2,y-g.get_height()//2))
+        pts=[(x,y-r),(x+r,y),(x,y+r),(x-r,y)]
+        pygame.draw.polygon(s.scr,_C['air'],pts)
+        ir=int(r*0.45)
+        pygame.draw.polygon(s.scr,_C['air_d'],[(x,y-ir),(x+ir,y),(x,y+ir),(x-ir,y)])
+        er=max(2,int(r*0.11))
+        for dx in (-int(r*0.18),int(r*0.18)):
+            pygame.draw.circle(s.scr,_C['white'],(x+dx,y-int(r*0.08)),er)
+        wh=int(r*0.35)
+        pygame.draw.polygon(s.scr,_C['air'],[(x-r,y),(x-r-wh,y-wh),(x-int(r*0.5),y-int(wh*0.5))])
+        pygame.draw.polygon(s.scr,_C['air'],[(x+r,y),(x+r+wh,y-wh),(x+int(r*0.5),y-int(wh*0.5))])
+        pygame.draw.polygon(s.scr,_C['white'],pts,2)
 
-    def _draw_ground_enemy(self, x, y, prox, pulse):
-        r = int((NOTE_R + prox * 4) * pulse)
-        g = self._glow(COL_GROUND)
-        g.set_alpha(int(30 + prox * 80))
-        self.scr.blit(g, (x - g.get_width()//2, y - g.get_height()//2))
-        pygame.draw.circle(self.scr, COL_GROUND, (x, y), r)
-        pygame.draw.circle(self.scr, COL_GROUND_D, (x, y), int(r*0.6))
-        eo = int(r * 0.25)
-        er = max(2, int(r * 0.14))
-        pygame.draw.circle(self.scr, COL_WHITE, (x-eo, y-eo), er)
-        pygame.draw.circle(self.scr, COL_WHITE, (x+eo, y-eo), er)
-        pygame.draw.circle(self.scr, (30,10,40), (x-eo+1, y-eo), max(1, er-1))
-        pygame.draw.circle(self.scr, (30,10,40), (x+eo+1, y-eo), max(1, er-1))
-        mw = int(r*0.4)
-        pygame.draw.arc(self.scr, (30,10,40), (x-mw//2, y, mw, int(r*0.25)), 3.14, 6.28, 2)
-        pygame.draw.circle(self.scr, COL_WHITE, (x, y), r, 2)
+    def _e_hold(s,x,y,o,st,hx,sp):
+        ex=int(hx+(o.hit_time+o.duration-st)*sp)
+        bh=12; col=_C['hold']
+        pygame.draw.rect(s.scr,col,(min(x,ex),int(y)-bh//2,abs(ex-x)+1,bh),border_radius=6)
+        pygame.draw.circle(s.scr,col,(x,int(y)),R-3)
+        pygame.draw.circle(s.scr,_C['white'],(x,int(y)),R-3,2)
+        t=s._f(11,True).render("HOLD",True,_C['white'])
+        s.scr.blit(t,(x-t.get_width()//2,int(y)-t.get_height()//2))
 
-    def _draw_air_enemy(self, x, y, prox, pulse):
-        r = int((NOTE_R + prox * 4) * pulse)
-        g = self._glow(COL_AIR)
-        g.set_alpha(int(30 + prox * 80))
-        self.scr.blit(g, (x - g.get_width()//2, y - g.get_height()//2))
-        pts = [(x, y-r), (x+r, y), (x, y+r), (x-r, y)]
-        pygame.draw.polygon(self.scr, COL_AIR, pts)
-        ir = int(r*0.5)
-        pygame.draw.polygon(self.scr, COL_AIR_D, [(x,y-ir),(x+ir,y),(x,y+ir),(x-ir,y)])
-        er = max(2, int(r*0.12))
-        pygame.draw.circle(self.scr, COL_WHITE, (x-int(r*0.2), y-int(r*0.1)), er)
-        pygame.draw.circle(self.scr, COL_WHITE, (x+int(r*0.2), y-int(r*0.1)), er)
-        wl = [(x-r, y), (x-r-int(r*0.5), y-int(r*0.4)), (x-int(r*0.5), y-int(r*0.2))]
-        wr = [(x+r, y), (x+r+int(r*0.5), y-int(r*0.4)), (x+int(r*0.5), y-int(r*0.2))]
-        pygame.draw.polygon(self.scr, COL_AIR, wl)
-        pygame.draw.polygon(self.scr, COL_AIR, wr)
-        pygame.draw.polygon(self.scr, COL_WHITE, pts, 2)
+    def _e_obst(s,x,y,pr,pu):
+        r=int((R+4)*pu)
+        pygame.draw.polygon(s.scr,_C['obstacle'],[(x,y-r-5),(x+r+5,y),(x,y+r+5),(x-r-5,y)])
+        pygame.draw.polygon(s.scr,(150,25,25),[(x,y-r),(x+r,y),(x,y+r),(x-r,y)])
+        lw=3
+        pygame.draw.line(s.scr,_C['white'],(x-int(r*0.3),y-int(r*0.3)),(x+int(r*0.3),y+int(r*0.3)),lw)
+        pygame.draw.line(s.scr,_C['white'],(x+int(r*0.3),y-int(r*0.3)),(x-int(r*0.3),y+int(r*0.3)),lw)
+        pygame.draw.polygon(s.scr,_C['white'],[(x,y-r-5),(x+r+5,y),(x,y+r+5),(x-r-5,y)],2)
 
-    def _draw_hold(self, x, y, obj: GameplayObject, st, hx, speed, prox):
-        end_x = int(hx + (obj.hit_time + obj.duration - st) * speed)
-        bar_h = 14
-        col = COL_HOLD
-        pygame.draw.rect(self.scr, (*col, ), (min(x, end_x), int(y) - bar_h//2, abs(end_x - x), bar_h), border_radius=7)
-        pygame.draw.circle(self.scr, col, (x, int(y)), NOTE_R - 2)
-        pygame.draw.circle(self.scr, COL_WHITE, (x, int(y)), NOTE_R - 2, 2)
-        txt = self.f('xs').render("HOLD", True, COL_WHITE)
-        self.scr.blit(txt, (x - txt.get_width()//2, int(y) - txt.get_height()//2))
-
-    def _draw_obstacle(self, x, y, prox, pulse):
-        r = int((NOTE_R + 4) * pulse)
-        pygame.draw.polygon(self.scr, COL_OBSTACLE,
-            [(x, y-r-4), (x+r+4, y), (x, y+r+4), (x-r-4, y)])
-        pygame.draw.polygon(self.scr, (180, 30, 30),
-            [(x, y-r), (x+r, y), (x, y+r), (x-r, y)])
-        lw = 3
-        pygame.draw.line(self.scr, COL_WHITE, (x-int(r*0.3), y-int(r*0.3)), (x+int(r*0.3), y+int(r*0.3)), lw)
-        pygame.draw.line(self.scr, COL_WHITE, (x+int(r*0.3), y-int(r*0.3)), (x-int(r*0.3), y+int(r*0.3)), lw)
-        pygame.draw.polygon(self.scr, COL_WHITE,
-            [(x, y-r-4), (x+r+4, y), (x, y+r+4), (x-r-4, y)], 2)
-
-    def _draw_mash(self, x, y, prox, pulse):
-        r = int((NOTE_R - 2) * pulse)
+    def _e_mash(s,x,y,pr,pu):
+        r=int((R-3)*pu)
         for i in range(3):
-            ox = i * int(r * 0.8) - int(r * 0.8)
-            pygame.draw.circle(self.scr, COL_MASH, (x + ox, int(y)), r - 2)
-            pygame.draw.circle(self.scr, COL_WHITE, (x + ox, int(y)), r - 2, 2)
-        txt = self.f('xs').render("MASH!", True, (60, 30, 0))
-        self.scr.blit(txt, (x - txt.get_width()//2, int(y) - txt.get_height()//2))
+            ox=int((i-1)*r*0.9)
+            pygame.draw.circle(s.scr,_C['mash'],(x+ox,int(y)),r)
+            pygame.draw.circle(s.scr,_C['white'],(x+ox,int(y)),r,2)
+        t=s._f(10,True).render("MASH!",True,(80,40,0))
+        s.scr.blit(t,(x-t.get_width()//2,int(y)-t.get_height()//2))
 
-    def _draw_heavy(self, x, y, prox, pulse):
-        r = int((NOTE_R + 6) * pulse)
-        g = self._glow(COL_HEAVY)
-        g.set_alpha(int(60 + prox * 120))
-        self.scr.blit(g, (x - g.get_width()//2, int(y) - g.get_height()//2))
-        pygame.draw.circle(self.scr, COL_HEAVY, (x, int(y)), r)
-        pygame.draw.circle(self.scr, (255, 200, 240), (x, int(y)), int(r*0.4))
-        pygame.draw.circle(self.scr, COL_WHITE, (x, int(y)), r, 3)
+    def _e_heavy(s,x,y,pr,pu):
+        r=int((R+8)*pu)
+        g=s._glow(_C['heavy'],R*3); g.set_alpha(int(50+pr*120))
+        s.scr.blit(g,(x-g.get_width()//2,int(y)-g.get_height()//2))
+        pygame.draw.circle(s.scr,_C['heavy'],(x,int(y)),r)
+        pygame.draw.circle(s.scr,(255,180,230),(x,int(y)),int(r*0.4))
+        pygame.draw.circle(s.scr,_C['white'],(x,int(y)),r,3)
         for i in range(6):
-            angle = pygame.time.get_ticks() * 0.003 + i * math.tau / 6
-            sx = x + int(math.cos(angle) * (r + 6))
-            sy = int(y) + int(math.sin(angle) * (r + 6))
-            pygame.draw.circle(self.scr, COL_GOLD, (sx, sy), 3)
+            a=pygame.time.get_ticks()*0.004+i*math.tau/6
+            sx=x+int(math.cos(a)*(r+8)); sy=int(y)+int(math.sin(a)*(r+8))
+            pygame.draw.circle(s.scr,_C['gold'],(sx,sy),3)
 
     # ── Character ──
-
-    def _draw_character(self, w, h, wlv):
-        cx = int(w * HIT_X_RATIO)
-        by = int(h * GROUND_Y + NOTE_R + 8)
-        bob = int(math.sin(self.char_frame * math.pi / 2) * 4)
-        jmp = int(-55 * (self.char_action_t / 0.15)) if self.char_action == 'air' and self.char_action_t > 0 else 0
-        y = by + bob + jmp
-        if wlv > 0:
-            ar = 20 + wlv * 6
-            aura = pygame.Surface((ar*2, ar*2), pygame.SRCALPHA)
-            ac = WEAPON_COLS[min(wlv, len(WEAPON_COLS)-1)]
-            pygame.draw.circle(aura, (*ac, 15 + wlv*8), (ar, ar), ar)
-            self.scr.blit(aura, (cx-ar, y-35-ar))
-        pygame.draw.ellipse(self.scr, COL_GROUND, (cx-16, y-58, 32, 36))
-        pygame.draw.circle(self.scr, COL_WHITE, (cx-5, y-43), 4)
-        pygame.draw.circle(self.scr, COL_WHITE, (cx+7, y-43), 4)
-        pygame.draw.circle(self.scr, COL_BG, (cx-4, y-42), 2)
-        pygame.draw.circle(self.scr, COL_BG, (cx+8, y-42), 2)
-        pygame.draw.rect(self.scr, COL_ACCENT, (cx-10, y-22, 20, 22))
-        ph = self.char_frame * math.pi / 2
-        pygame.draw.line(self.scr, COL_ACCENT, (cx-5, y), (int(cx-5+math.sin(ph)*8), y+14), 5)
-        pygame.draw.line(self.scr, COL_ACCENT, (cx+5, y), (int(cx+5+math.sin(ph+math.pi)*8), y+14), 5)
-        if self.char_action_t > 0:
-            ext = int((0.15-self.char_action_t)/0.15*25)
-            wc = WEAPON_COLS[min(wlv, len(WEAPON_COLS)-1)]
-            th = 3 + wlv
-            ln = 25 + wlv*8 + ext
-            if self.char_action == 'ground':
-                pygame.draw.line(self.scr, wc, (cx+10, y-18), (cx+ln, y-22), th)
-                if wlv >= 2:
-                    pygame.draw.circle(self.scr, wc, (cx+ln, y-22), 4+wlv)
-            elif self.char_action == 'air':
-                pygame.draw.line(self.scr, wc, (cx, y-30), (cx+ln, y-50-ext), th)
+    def _character(s,w,h,wlv):
+        cx=int(w*HX); by=int(h*GY+R+8)
+        bob=int(math.sin(s.cf*math.pi/2)*4)
+        jmp=int(-60*(s.cat/0.15)) if s.ca=='air' and s.cat>0 else 0
+        y=by+bob+jmp
+        if wlv>0:
+            ar=22+wlv*7; ac=WC[min(wlv,len(WC)-1)]
+            aura=pygame.Surface((ar*2,ar*2),pygame.SRCALPHA)
+            pygame.draw.circle(aura,(*ac,12+wlv*10),(ar,ar),ar)
+            s.scr.blit(aura,(cx-ar,y-38-ar))
+        pygame.draw.ellipse(s.scr,_C['ground'],(cx-18,y-62,36,40))
+        for dx,dy in [(-6,-47),(8,-47)]:
+            pygame.draw.circle(s.scr,_C['white'],(cx+dx,y+dy),5)
+            pygame.draw.circle(s.scr,(15,5,30),(cx+dx+1,y+dy),3)
+        pygame.draw.arc(s.scr,_C['ground_d'],(cx-6,y-38,14,8),0.1,math.pi-0.1,2)
+        pygame.draw.rect(s.scr,_C['accent'],(cx-11,y-24,22,24),border_radius=4)
+        ph=s.cf*math.pi/2
+        for dx,si in [(-6,1),(6,-1)]:
+            ex=cx+dx+int(math.sin(ph*si)*9)
+            pygame.draw.line(s.scr,_C['accent'],(cx+dx,y),(ex,y+16),5)
+        if s.cat>0:
+            ext=int((0.15-s.cat)/0.15*28)
+            wc=WC[min(wlv,len(WC)-1)]; th=3+wlv; ln=28+wlv*9+ext
+            if s.ca=='gnd':
+                pygame.draw.line(s.scr,wc,(cx+12,y-20),(cx+ln,y-24),th)
+                if wlv>=2: pygame.draw.circle(s.scr,wc,(cx+ln,y-24),4+wlv)
+            elif s.ca=='air':
+                pygame.draw.line(s.scr,wc,(cx+2,y-32),(cx+ln,y-55-ext),th)
 
     # ── Particles + Popups ──
+    def _draw_parts(s):
+        for p in s.parts:
+            a=max(0,min(255,int(255*p.life/p.ml)))
+            sz=max(1,int(p.sz*p.life/p.ml))
+            sf=pygame.Surface((sz*2+2,sz*2+2),pygame.SRCALPHA)
+            if p.kind=='spark':
+                pygame.draw.circle(sf,(*p.col,a),(sz+1,sz+1),sz)
+                pygame.draw.circle(sf,(*_C['white'],a//2),(sz+1,sz+1),max(1,sz//2))
+            else:
+                pygame.draw.circle(sf,(*p.col,a),(sz+1,sz+1),sz)
+            s.scr.blit(sf,(int(p.x)-sz-1,int(p.y)-sz-1))
 
-    def _draw_particles(self):
-        for p in self.particles:
-            a = max(0, min(255, int(255*p.life/p.max_life)))
-            sz = max(1, int(p.size * p.life/p.max_life))
-            s = pygame.Surface((sz*2, sz*2), pygame.SRCALPHA)
-            pygame.draw.circle(s, (*p.color, a), (sz, sz), sz)
-            self.scr.blit(s, (int(p.x)-sz, int(p.y)-sz))
-
-    def _draw_popups(self):
-        for j in self.popups:
-            a = max(0, min(255, int(255 * min(1, j.life/0.3))))
-            sz = max(14, int(20 * j.scale))
-            font = pygame.font.SysFont('segoe ui,arial,sans-serif', sz, bold=True)
-            s = font.render(j.text, True, j.color)
-            s.set_alpha(a)
-            self.scr.blit(s, (int(j.x) - s.get_width()//2, int(j.y)))
-
-    def spawn_particles(self, x, y, col, count=12):
-        for _ in range(count):
-            self.particles.append(Particle(x, y, col, random.uniform(2, 6)))
-
-    def add_popup(self, text, color, lane: Lane):
-        w, h = self.scr.get_size()
-        x = w * HIT_X_RATIO + 60
-        y = (h * AIR_Y if lane == Lane.AIR else h * GROUND_Y) - 30
-        self.popups.append(JudgePop(text, color, x, y))
-
-    def trigger_hit(self, lane: Lane, judgement: Judgement, wlv: int):
-        w, h = self.scr.get_size()
-        hx = w * HIT_X_RATIO
-        y = h * AIR_Y if lane == Lane.AIR else h * GROUND_Y
-        col = JUDGEMENT_COLORS[judgement]
-        count = 10 + wlv * 4
-        self.spawn_particles(hx, y, col, count)
-        self.add_popup(judgement.value + '!', col, lane)
-        self.char_action = 'air' if lane == Lane.AIR else 'ground'
-        self.char_action_t = 0.15
-        self.shake = 5 if judgement == Judgement.PERFECT else 2.5
+    def _draw_pops(s):
+        for j in s.pops:
+            a=max(0,min(255,int(255*min(1,j.life/0.25))))
+            sz=max(14,int(22*j.sc))
+            f=s._f(sz,True)
+            sh=f.render(j.txt,True,(0,0,0)); sh.set_alpha(a//3)
+            s.scr.blit(sh,(int(j.x)-sh.get_width()//2+2,int(j.y)+2))
+            r=f.render(j.txt,True,j.col); r.set_alpha(a)
+            s.scr.blit(r,(int(j.x)-r.get_width()//2,int(j.y)))
 
     # ── HUD ──
-
-    def _draw_hud(self, w, h, gm: GameplayManager):
-        s = gm.state
-        self.scr.blit(self.f('md').render(f"{s.score:,}", True, COL_WHITE), (w-150, 12))
-        self.scr.blit(self.f('xs').render(f"{s.accuracy:.1f}%", True, (180,180,180)), (w-80, 40))
-        if s.combo > 2:
-            cs = self.f('combo').render(f"{s.combo}x", True, COL_GOLD)
-            cs.set_alpha(220)
-            self.scr.blit(cs, (w//2-cs.get_width()//2, int(h*0.18)))
-            cl = self.f('xs').render("COMBO", True, (150,150,150))
-            self.scr.blit(cl, (w//2-cl.get_width()//2, int(h*0.18)+52))
-        if s.weapon_level > 0:
-            wnames = ['','Schwert','Flamme','Blitz','Nova']
-            wn = wnames[min(s.weapon_level, len(wnames)-1)]
-            wc = WEAPON_COLS[min(s.weapon_level, len(WEAPON_COLS)-1)]
-            self.scr.blit(self.f('sm').render(f"⚔ {wn} Lv.{s.weapon_level}", True, wc), (w-170, 58))
+    def _hud(s,w,h,gm):
+        st=gm.state
         # HP bar
-        hp_w, hp_h = 180, 10
-        hp_x, hp_y = 15, 15
-        pygame.draw.rect(self.scr, (40,30,60), (hp_x, hp_y, hp_w, hp_h), border_radius=5)
-        hw = int(hp_w * s.hp / s.hp_max)
-        hc = (0,230,118) if s.hp > 50 else COL_GOLD if s.hp > 25 else (255,82,82)
-        if hw > 0:
-            pygame.draw.rect(self.scr, hc, (hp_x, hp_y, hw, hp_h), border_radius=5)
-        self.scr.blit(self.f('xs').render(f"HP {int(s.hp)}", True, (180,180,180)), (hp_x, hp_y + 14))
+        hpw,hph=200,12; hpx,hpy=16,14
+        bg=pygame.Surface((hpw+4,hph+4),pygame.SRCALPHA)
+        pygame.draw.rect(bg,(0,0,0,120),(0,0,hpw+4,hph+4),border_radius=7)
+        s.scr.blit(bg,(hpx-2,hpy-2))
+        pygame.draw.rect(s.scr,(30,15,50),(hpx,hpy,hpw,hph),border_radius=6)
+        hw=int(hpw*st.hp/st.hp_max)
+        hc=_C['green'] if st.hp>50 else _C['gold'] if st.hp>25 else _C['red']
+        if hw>0: pygame.draw.rect(s.scr,hc,(hpx,hpy,hw,hph),border_radius=6)
+        t=s._f(11).render(f"HP {int(st.hp)}",True,_C['text2'])
+        s.scr.blit(t,(hpx,hpy+hph+2))
+
+        # Score
+        sc=s._f(26,True).render(f"{st.score:,}",True,_C['white'])
+        sh=s._f(26,True).render(f"{st.score:,}",True,(0,0,0)); sh.set_alpha(60)
+        s.scr.blit(sh,(w-sc.get_width()-18,14)); s.scr.blit(sc,(w-sc.get_width()-20,12))
+        ac=s._f(13).render(f"{st.accuracy:.1f}%",True,_C['text2'])
+        s.scr.blit(ac,(w-ac.get_width()-20,42))
+
+        # Combo
+        if st.combo>2:
+            cs=s._f(44,True).render(f"{st.combo}x",True,_C['gold'])
+            cs.set_alpha(220)
+            cx=w//2-cs.get_width()//2; cy=int(h*0.16)
+            sh=s._f(44,True).render(f"{st.combo}x",True,(0,0,0)); sh.set_alpha(50)
+            s.scr.blit(sh,(cx+2,cy+2)); s.scr.blit(cs,(cx,cy))
+            cl=s._f(11).render("COMBO",True,_C['text3'])
+            s.scr.blit(cl,(w//2-cl.get_width()//2,cy+50))
+
+        # Weapon
+        if st.weapon_level>0:
+            wn=['','Schwert','Flamme','Blitz','Nova'][min(st.weapon_level,4)]
+            wc=WC[min(st.weapon_level,len(WC)-1)]
+            ws=s._f(14,True).render(f"⚔ {wn} Lv.{st.weapon_level}",True,wc)
+            s.scr.blit(ws,(w-ws.get_width()-20,60))
+
         # Progress
-        dur = gm.chart.objects[-1].hit_time + 2000 if gm.chart.objects else 1
-        prog = min(1, gm.song_time / dur)
-        bw = int(w * 0.3)
-        bx = (w - bw) // 2
-        by = h - 18
-        pygame.draw.rect(self.scr, (40,30,60), (bx, by, bw, 5))
-        if prog > 0:
-            pygame.draw.rect(self.scr, COL_AIR, (bx, by, int(bw*prog), 5))
+        dur=gm.chart.objects[-1].hit_time+2000 if gm.chart.objects else 1
+        prog=min(1,gm.song_time/dur)
+        bw=int(w*0.28); bx=(w-bw)//2; by=h-16
+        pygame.draw.rect(s.scr,(30,15,50),(bx,by,bw,4),border_radius=2)
+        if prog>0: pygame.draw.rect(s.scr,_C['air'],(bx,by,int(bw*prog),4),border_radius=2)
+
         # Timing bar
         if gm.timing_records:
-            self._draw_timing_bar(w, h, gm)
-        self.scr.blit(self.f('xs').render("[ESC] Pause  [+/-] Vol", True, (50,50,50)), (15, h-35))
+            import time as _t; now=_t.perf_counter()
+            tbw,tbh=160,5; tbx=w//2-tbw//2; tby=h-30
+            pygame.draw.rect(s.scr,(20,10,40),(tbx,tby,tbw,tbh),border_radius=2)
+            pygame.draw.line(s.scr,_C['text3'],(tbx+tbw//2,tby-1),(tbx+tbw//2,tby+tbh+1))
+            pw=gm.hit_windows.perfect
+            for rec in gm.timing_records[-20:]:
+                age=now-rec.time
+                if age>1.2: continue
+                al=max(0,int(255*(1-age/1.2)))
+                ratio=max(-1,min(1,rec.error_ms/100))
+                px=tbx+tbw//2+int(ratio*tbw/2)
+                c=_C['gold'] if abs(rec.error_ms)<=pw else _C['air'] if rec.error_ms>0 else _C['ground']
+                ms=pygame.Surface((3,tbh+2),pygame.SRCALPHA); ms.fill((*c,al))
+                s.scr.blit(ms,(px-1,tby-1))
 
-    def _draw_timing_bar(self, w, h, gm):
-        bw, bh = 180, 6
-        bx = w//2 - bw//2
-        by = h - 40
-        pygame.draw.rect(self.scr, (30,20,50), (bx, by, bw, bh), border_radius=3)
-        pygame.draw.line(self.scr, (80,80,80), (bx+bw//2, by-1), (bx+bw//2, by+bh+1))
-        import time as _t
-        now = _t.perf_counter()
-        pw = gm.hit_windows.perfect
-        for rec in gm.timing_records[-25:]:
-            age = now - rec.time
-            if age > 1.5: continue
-            alpha = max(0, int(255*(1-age/1.5)))
-            ratio = max(-1, min(1, rec.error_ms / 120))
-            px = bx + bw//2 + int(ratio * bw/2)
-            col = COL_GOLD if abs(rec.error_ms) <= pw else COL_AIR if rec.error_ms > 0 else COL_GROUND
-            m = pygame.Surface((3, bh+2), pygame.SRCALPHA)
-            m.fill((*col, alpha))
-            self.scr.blit(m, (px-1, by-1))
+        s.scr.blit(s._f(10).render("[ESC] Pause  [+/-] Vol",True,_C['text3']),(16,h-30))
 
     # ── Overlays ──
+    def _countdown(s,w,h,cd):
+        ov=pygame.Surface((w,h),pygame.SRCALPHA); ov.fill((0,0,0,140))
+        s.scr.blit(ov,(0,0))
+        v=max(0,int(cd)+1) if cd>0 else 0
+        txt=str(v) if v>0 else "LOS!"
+        col=_C['gold'] if v>0 else _C['green']
+        f=s._f(80,True); r=f.render(txt,True,col)
+        sh=f.render(txt,True,(0,0,0)); sh.set_alpha(80)
+        s.scr.blit(sh,(w//2-r.get_width()//2+3,h//2-r.get_height()//2+3))
+        s.scr.blit(r,(w//2-r.get_width()//2,h//2-r.get_height()//2))
 
-    def _draw_countdown(self, w, h, cd):
-        ov = pygame.Surface((w, h), pygame.SRCALPHA)
-        ov.fill((0,0,0,130))
-        self.scr.blit(ov, (0,0))
-        val = max(0, int(cd) + 1) if cd > 0 else 0
-        text = str(val) if val > 0 else "LOS!"
-        col = COL_GOLD if val > 0 else (0,230,118)
-        s = self.f('count').render(text, True, col)
-        self.scr.blit(s, (w//2-s.get_width()//2, h//2-s.get_height()//2))
-
-    def _draw_overlay(self, w, h, title, subtitle, col):
-        ov = pygame.Surface((w, h), pygame.SRCALPHA)
-        ov.fill((0,0,0,170))
-        self.scr.blit(ov, (0,0))
-        s1 = self.f('xl').render(title, True, col)
-        self.scr.blit(s1, (w//2-s1.get_width()//2, h//2-40))
-        s2 = self.f('sm').render(subtitle, True, (180,180,180))
-        self.scr.blit(s2, (w//2-s2.get_width()//2, h//2+25))
+    def _overlay(s,w,h,title,sub,col):
+        ov=pygame.Surface((w,h),pygame.SRCALPHA); ov.fill((0,0,0,180))
+        s.scr.blit(ov,(0,0))
+        f1=s._f(48,True); r1=f1.render(title,True,col)
+        sh=f1.render(title,True,(0,0,0)); sh.set_alpha(80)
+        s.scr.blit(sh,(w//2-r1.get_width()//2+2,h//2-32)); s.scr.blit(r1,(w//2-r1.get_width()//2,h//2-34))
+        r2=s._f(15).render(sub,True,_C['text2'])
+        s.scr.blit(r2,(w//2-r2.get_width()//2,h//2+22))
