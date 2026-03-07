@@ -3,5 +3,10 @@
   "sfx_volume": 0.5,
   "audio_offset": 0,
   "note_speed": 0.42,
-  "bg_dim": 0.3
+  "bg_dim": 0.3,
+  "approach_rate": 7.0,
+  "overall_difficulty": 1.6,
+  "fullscreen": false,
+  "show_timing_bar": true,
+  "show_hit_error": true
 }

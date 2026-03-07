@@ -150,7 +150,12 @@ class Renderer:
         knob_col = WHITE if knob_hovered else (200, 200, 200)
         pygame.draw.circle(scr, knob_col, (knob_x, y + 12), 10)
         pygame.draw.circle(scr, ACCENT, (knob_x, y + 12), 10, 2)
-        val_str = f"{value:.0f}{suffix}" if suffix == 'ms' else f"{int(value * 100)}%"
+        if suffix == 'ms':
+            val_str = f"{value:.0f}{suffix}"
+        elif vmax > 1.5:
+            val_str = f"{value:.1f}"
+        else:
+            val_str = f"{int(value * 100)}%"
         vs = self.f('xs').render(val_str, True, (160, 160, 160))
         scr.blit(vs, (bar_x + bar_w + 10, y + 2))
         return bar_rect, ratio
@@ -307,7 +312,22 @@ class Renderer:
 
         r5, _ = self.draw_slider("Hintergrund-Dim", settings.bg_dim, 0, 1, cx, y, sw, mouse)
         self._btn_rects.append((r5, 'slider_bg_dim'))
-        y += gap + 20
+        y += gap
+
+        r6, _ = self.draw_slider("Approach Rate (AR)", settings.approach_rate, 1, 10, cx, y, sw, mouse)
+        self._btn_rects.append((r6, 'slider_approach_rate'))
+        y += gap
+
+        r7, _ = self.draw_slider("Overall Difficulty (OD)", settings.overall_difficulty, 1, 10, cx, y, sw, mouse)
+        self._btn_rects.append((r7, 'slider_overall_difficulty'))
+        y += gap + 10
+
+        hw = settings.get_hit_windows()
+        windows = self.f('xs').render(
+            f"Hit Windows → Perfect: ±{hw['perfect']}ms  Great: ±{hw['great']}ms  Good: ±{hw['good']}ms   Approach: {settings.get_approach_time_ms()}ms",
+            True, (120, 100, 150))
+        scr.blit(windows, (cx, y))
+        y += 25
 
         pygame.draw.line(scr, (50, 40, 70), (cx, y), (cx + sw, y), 1)
         y += 20
@@ -364,13 +384,97 @@ class Renderer:
         scr.blit(combo_s, (w // 2 - combo_s.get_width() // 2, 360))
         scr.blit(acc_s, (w // 2 - acc_s.get_width() // 2, 385))
 
-        self.draw_btn("↻ Nochmal", w // 2 - 210, 430, 195, 48, mouse, 'retry', ACCENT)
-        self.draw_btn("← Zurück", w // 2 + 15, 430, 195, 48, mouse, 'back', (70, 55, 110))
+        ur = result.get('unstable_rate', 0)
+        avg_err = result.get('avg_error', 0)
+        early = result.get('early', 0)
+        late = result.get('late', 0)
+        ur_s = self.f('xs').render(f"Unstable Rate: {ur:.1f}   Avg Error: {avg_err:+.1f}ms   Früh: {early}  Spät: {late}", True, (140, 140, 140))
+        scr.blit(ur_s, (w // 2 - ur_s.get_width() // 2, 410))
+
+        errors = result.get('timing_errors', [])
+        if errors:
+            bar_w, bar_h = 300, 30
+            bar_x = w // 2 - bar_w // 2
+            bar_y = 435
+            pygame.draw.rect(scr, (25, 15, 40), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+            pygame.draw.line(scr, (80, 80, 80), (bar_x + bar_w // 2, bar_y), (bar_x + bar_w // 2, bar_y + bar_h), 1)
+            max_e = 150
+            for err in errors[-100:]:
+                ratio = max(-1, min(1, err / max_e))
+                px = bar_x + bar_w // 2 + int(ratio * bar_w / 2)
+                col = PERFECT_COL if abs(err) < 45 else AIR_COL if err > 0 else GROUND_COL
+                pygame.draw.circle(scr, col, (px, bar_y + bar_h // 2 + random.randint(-8, 8)), 2)
+
+        btn_y = 480
+        self.draw_btn("↻ Nochmal", w // 2 - 210, btn_y, 195, 48, mouse, 'retry', ACCENT)
+        self.draw_btn("← Zurück", w // 2 + 15, btn_y, 195, 48, mouse, 'back', (70, 55, 110))
 
         hint = self.f('xs').render("R: Nochmal   ESC: Zurück", True, (70, 70, 70))
         scr.blit(hint, (w // 2 - hint.get_width() // 2, h - 25))
 
     # --- Game rendering ---
+    def draw_receptors(self, beat_pulse: float = 0):
+        scr = self.screen
+        w, h = scr.get_size()
+        hit_x = int(w * HIT_X_RATIO)
+        gy, ay = int(h * GROUND_Y_RATIO), int(h * AIR_Y_RATIO)
+        pulse_scale = 1.0 + beat_pulse * 0.25
+        pulse_alpha = int(120 + beat_pulse * 135)
+        for y, col in [(ay, AIR_COL), (gy, GROUND_COL)]:
+            r = int(NOTE_RADIUS * pulse_scale)
+            ring = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
+            pygame.draw.circle(ring, (*col, pulse_alpha), (r * 2, r * 2), r, 3)
+            pygame.draw.circle(ring, (*col, int(pulse_alpha * 0.3)), (r * 2, r * 2), r + 6, 2)
+            scr.blit(ring, (hit_x - r * 2, y - r * 2))
+            inner = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(inner, (*col, 60), (8, 8), 6)
+            scr.blit(inner, (hit_x - 8, y - 8))
+
+    def draw_timing_bar(self, timing_hits, perfect_window: float):
+        scr = self.screen
+        w, h = scr.get_size()
+        bar_w, bar_h = 200, 8
+        bar_x = w // 2 - bar_w // 2
+        bar_y = h - 50
+        pygame.draw.rect(scr, (30, 20, 50), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+        pygame.draw.line(scr, (100, 100, 100), (bar_x + bar_w // 2, bar_y - 2),
+                         (bar_x + bar_w // 2, bar_y + bar_h + 2), 1)
+        now = pygame.time.get_ticks()
+        max_err = 150
+        for hit in timing_hits[-30:]:
+            age = (now - hit.time) / 1000
+            if age > 2:
+                continue
+            alpha = max(0, int(255 * (1 - age / 2)))
+            ratio = max(-1, min(1, hit.error_ms / max_err))
+            px = bar_x + bar_w // 2 + int(ratio * bar_w / 2)
+            if abs(hit.error_ms) <= perfect_window:
+                col = (*PERFECT_COL, alpha)
+            elif hit.error_ms > 0:
+                col = (*AIR_COL, alpha)
+            else:
+                col = (*GROUND_COL, alpha)
+            mark = pygame.Surface((4, bar_h + 4), pygame.SRCALPHA)
+            pygame.draw.rect(mark, col, (0, 0, 4, bar_h + 4), border_radius=2)
+            scr.blit(mark, (px - 2, bar_y - 2))
+        early = self.f('xs').render("Früh", True, (80, 80, 80))
+        late = self.f('xs').render("Spät", True, (80, 80, 80))
+        scr.blit(early, (bar_x - early.get_width() - 5, bar_y - 2))
+        scr.blit(late, (bar_x + bar_w + 5, bar_y - 2))
+
+    def draw_fail(self):
+        scr = self.screen
+        w, h = scr.get_size()
+        overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+        overlay.fill((80, 0, 0, 180))
+        scr.blit(overlay, (0, 0))
+        fail_text = self.f('grade').render("FAILED", True, MISS_COL)
+        scr.blit(fail_text, (w // 2 - fail_text.get_width() // 2, h // 3 - 40))
+        sub = self.f('md').render("HP auf 0 gefallen!", True, (200, 150, 150))
+        scr.blit(sub, (w // 2 - sub.get_width() // 2, h // 3 + 80))
+        hint = self.f('sm').render("R: Nochmal   ESC: Zurück", True, (180, 130, 130))
+        scr.blit(hint, (w // 2 - hint.get_width() // 2, h // 2 + 40))
+
     def draw_lanes(self):
         scr = self.screen
         w, h = scr.get_size()

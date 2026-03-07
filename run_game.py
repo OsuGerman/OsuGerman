@@ -140,6 +140,10 @@ def handle_slider_drag(settings: Settings, slider_name: str, mouse_x: int, rect:
         settings.note_speed = round(0.2 + ratio * 0.8, 2)
     elif slider_name == 'slider_bg_dim':
         settings.bg_dim = ratio
+    elif slider_name == 'slider_approach_rate':
+        settings.approach_rate = round(1 + ratio * 9, 1)
+    elif slider_name == 'slider_overall_difficulty':
+        settings.overall_difficulty = round(1 + ratio * 9, 1)
     apply_settings(settings)
 
 
@@ -177,7 +181,7 @@ def main():
             return
         load_music(af)
         apply_settings(settings)
-        game_state = GameState(bm, renderer, settings.note_speed)
+        game_state = GameState(bm, renderer, settings=settings)
         state = 'game'
 
     def do_import():
@@ -261,7 +265,7 @@ def main():
                     bm = editor.bm
                     if bm.audio_file and os.path.exists(bm.audio_file):
                         load_music(bm.audio_file)
-                        game_state = GameState(bm, renderer, settings.note_speed)
+                        game_state = GameState(bm, renderer, settings=settings)
                         state = 'game'
                     editor.test_play = False
                 continue
@@ -325,7 +329,11 @@ def main():
 
                 elif state == 'game' and game_state:
                     if event.key == pygame.K_ESCAPE:
-                        if game_state.paused:
+                        if game_state.failed:
+                            game_state = None
+                            state = 'select'
+                            map_list = load_map_list()
+                        elif game_state.paused:
                             game_state.paused = False
                             from game.audio import unpause_music
                             unpause_music()
@@ -338,8 +346,33 @@ def main():
                         game_state = None
                         state = 'select'
                         map_list = load_map_list()
+                    elif event.key == pygame.K_r and game_state.failed:
+                        stop_music()
+                        bm_path = game_state.beatmap
+                        game_state = None
+                        for m in map_list:
+                            if m['title'] == bm_path.title:
+                                do_start_game(m)
+                                break
+                    elif event.key == pygame.K_F11:
+                        settings.fullscreen = not settings.fullscreen
+                        if settings.fullscreen:
+                            screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+                        else:
+                            screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+                        renderer = Renderer(screen)
+                        if game_state:
+                            game_state.renderer = renderer
 
-                elif state == 'result':
+                if event.key == pygame.K_F11 and state != 'game':
+                    settings.fullscreen = not settings.fullscreen
+                    if settings.fullscreen:
+                        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+                    else:
+                        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+                    renderer = Renderer(screen)
+
+                if state == 'result':
                     if event.key == pygame.K_ESCAPE:
                         state = 'select'
                         map_list = load_map_list()

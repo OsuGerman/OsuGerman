@@ -22,6 +22,13 @@ SCORE_PERFECT = 300
 SCORE_GREAT = 200
 SCORE_GOOD = 100
 
+HP_START = 80
+HP_MAX = 100
+HP_PERFECT = 4
+HP_GREAT = 2
+HP_GOOD = 0
+HP_MISS = -10
+
 GROUND_KEYS = [pygame.K_d, pygame.K_j, pygame.K_DOWN]
 AIR_KEYS = [pygame.K_f, pygame.K_k, pygame.K_UP]
 
@@ -51,28 +58,36 @@ class Settings:
         self.audio_offset = 0
         self.note_speed = 0.42
         self.bg_dim = 0.3
+        self.approach_rate = 7.0
+        self.overall_difficulty = 7.0
+        self.fullscreen = False
+        self.show_timing_bar = True
+        self.show_hit_error = True
         self.load()
+
+    def get_hit_windows(self):
+        od = self.overall_difficulty
+        return {
+            'perfect': max(20, int(50 - od * 3)),
+            'great': max(40, int(100 - od * 5)),
+            'good': max(70, int(150 - od * 5)),
+        }
+
+    def get_approach_time_ms(self):
+        return max(300, int(1800 - self.approach_rate * 120))
 
     def load(self):
         try:
             with open(SETTINGS_FILE) as f:
                 d = json.load(f)
-            self.music_volume = d.get('music_volume', 0.7)
-            self.sfx_volume = d.get('sfx_volume', 0.5)
-            self.audio_offset = d.get('audio_offset', 0)
-            self.note_speed = d.get('note_speed', 0.42)
-            self.bg_dim = d.get('bg_dim', 0.3)
+            for k, v in d.items():
+                if hasattr(self, k):
+                    setattr(self, k, v)
         except Exception:
             pass
 
     def save(self):
-        d = {
-            'music_volume': round(self.music_volume, 2),
-            'sfx_volume': round(self.sfx_volume, 2),
-            'audio_offset': self.audio_offset,
-            'note_speed': round(self.note_speed, 2),
-            'bg_dim': round(self.bg_dim, 2),
-        }
+        d = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
         try:
             with open(SETTINGS_FILE, 'w') as f:
                 json.dump(d, f, indent=2)
