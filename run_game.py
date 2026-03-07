@@ -155,10 +155,11 @@ class App:
             dest = os.path.join(SONG_DIR, fname)
             if not os.path.exists(dest): shutil.copy2(path, dest)
             dest = os.path.abspath(dest)
-            from game.beatgen import generate_beatmap
+            from game.mapper import generate_chart
             try:
-                data = generate_beatmap(dest, 5)
-                mp = os.path.join(MAP_DIR, f"{data['id']}.json")
+                data = generate_chart(dest, difficulty=5, diff_id='normal')
+                data['audio_file'] = dest
+                mp = os.path.join(MAP_DIR, f"{data['songId']}_auto.json")
                 json.dump(data, open(mp,'w'), indent=2)
                 bm = Beatmap(mp)
             except:
