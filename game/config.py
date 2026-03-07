@@ -62,8 +62,9 @@ class Settings:
         self.overall_difficulty = 7.0
         self.fullscreen = False
         self.show_timing_bar = True
-        self.show_hit_error = True
         self.fps_limit = 0
+        self.ground_keys = [pygame.K_d, pygame.K_j, pygame.K_DOWN]
+        self.air_keys = [pygame.K_f, pygame.K_k, pygame.K_UP]
         self.load()
 
     def get_hit_windows(self):
@@ -94,3 +95,6 @@ class Settings:
                 json.dump(d, f, indent=2)
         except Exception:
             pass
+
+    def key_name(self, key: int) -> str:
+        return pygame.key.name(key).upper()

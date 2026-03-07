@@ -510,6 +510,89 @@ class Renderer:
         hit_surf.fill((224, 64, 251, pulse))
         scr.blit(hit_surf, (hit_x - 20, 0))
 
+    def trigger_attack(self, lane: int, weapon_level: int, is_perfect: bool):
+        w, h = self.screen.get_size()
+        cx = int(w * HIT_X_RATIO)
+        y = int(h * AIR_Y_RATIO) if lane == LANE_AIR else int(h * GROUND_Y_RATIO)
+        col = PERFECT_COL if is_perfect else (ACCENT if weapon_level >= 2 else GROUND_COL)
+        count = 8 + weapon_level * 4
+        for _ in range(count):
+            self.particles.append(Particle(cx + 20, y, col, random.uniform(3, 7 + weapon_level)))
+        self.set_char_action('airHit' if lane == LANE_AIR else 'groundHit')
+
+    def draw_notes_as_enemies(self, notes: list[Note], game_time_ms: float,
+                              speed: float, beat_pulse: float):
+        scr = self.screen
+        w, h = scr.get_size()
+        hit_x = w * HIT_X_RATIO
+        gy, ay = h * GROUND_Y_RATIO, h * AIR_Y_RATIO
+
+        for note in notes:
+            if note.hit or note.missed:
+                continue
+            diff = note.time - game_time_ms
+            x = hit_x + diff * speed
+            if x < -60 or x > w + 60:
+                continue
+            y = ay if note.lane == LANE_AIR else gy
+            ix, iy = int(x), int(y)
+
+            proximity = max(0, 1 - abs(diff) / 600)
+            pulse = 1 + beat_pulse * 0.15
+            r = int((NOTE_RADIUS + proximity * 4) * pulse)
+
+            if note.lane == LANE_AIR:
+                col, dark = AIR_COL, AIR_DARK
+                self._draw_air_enemy(scr, ix, iy, r, col, dark, proximity, beat_pulse)
+            else:
+                col, dark = GROUND_COL, GROUND_DARK
+                self._draw_ground_enemy(scr, ix, iy, r, col, dark, proximity, beat_pulse)
+
+    def _draw_ground_enemy(self, scr, x, y, r, col, dark, prox, pulse):
+        glow = self._get_note_glow(col)
+        glow.set_alpha(int(30 + prox * 100))
+        scr.blit(glow, (x - glow.get_width() // 2, y - glow.get_height() // 2))
+
+        body_r = r
+        pygame.draw.circle(scr, col, (x, y), body_r)
+        pygame.draw.circle(scr, dark, (x, y), int(body_r * 0.6))
+
+        eye_off = int(body_r * 0.25)
+        eye_r = max(2, int(body_r * 0.15))
+        pygame.draw.circle(scr, WHITE, (x - eye_off, y - eye_off), eye_r)
+        pygame.draw.circle(scr, WHITE, (x + eye_off, y - eye_off), eye_r)
+        pygame.draw.circle(scr, (30, 10, 40), (x - eye_off + 1, y - eye_off), max(1, eye_r - 1))
+        pygame.draw.circle(scr, (30, 10, 40), (x + eye_off + 1, y - eye_off), max(1, eye_r - 1))
+
+        mouth_w = int(body_r * 0.4)
+        pygame.draw.arc(scr, (30, 10, 40), (x - mouth_w // 2, y, mouth_w, int(body_r * 0.3)),
+                        3.14, 6.28, 2)
+
+        pygame.draw.circle(scr, WHITE, (x, y), body_r, 2)
+
+    def _draw_air_enemy(self, scr, x, y, r, col, dark, prox, pulse):
+        glow = self._get_note_glow(col)
+        glow.set_alpha(int(30 + prox * 100))
+        scr.blit(glow, (x - glow.get_width() // 2, y - glow.get_height() // 2))
+
+        pts = [(x, y - r), (x + r, y), (x, y + r), (x - r, y)]
+        pygame.draw.polygon(scr, col, pts)
+        inner = int(r * 0.5)
+        pts2 = [(x, y - inner), (x + inner, y), (x, y + inner), (x - inner, y)]
+        pygame.draw.polygon(scr, dark, pts2)
+
+        eye_r = max(2, int(r * 0.12))
+        pygame.draw.circle(scr, WHITE, (x - int(r * 0.2), y - int(r * 0.1)), eye_r)
+        pygame.draw.circle(scr, WHITE, (x + int(r * 0.2), y - int(r * 0.1)), eye_r)
+        pygame.draw.circle(scr, (10, 20, 40), (x - int(r * 0.2), y - int(r * 0.1)), max(1, eye_r - 1))
+        pygame.draw.circle(scr, (10, 20, 40), (x + int(r * 0.2), y - int(r * 0.1)), max(1, eye_r - 1))
+
+        wing_pts_l = [(x - r, y), (x - r - int(r * 0.5), y - int(r * 0.4)), (x - int(r * 0.5), y - int(r * 0.2))]
+        wing_pts_r = [(x + r, y), (x + r + int(r * 0.5), y - int(r * 0.4)), (x + int(r * 0.5), y - int(r * 0.2))]
+        pygame.draw.polygon(scr, col, wing_pts_l)
+        pygame.draw.polygon(scr, col, wing_pts_r)
+        pygame.draw.polygon(scr, WHITE, pts, 2)
+
     def _get_note_glow(self, col: tuple) -> pygame.Surface:
         key = col
         if not hasattr(self, '_glow_cache'):
@@ -561,7 +644,7 @@ class Renderer:
                 pygame.draw.circle(scr, dark, (ix, iy), int(r * 0.5))
                 pygame.draw.circle(scr, WHITE, (ix, iy), r, 2)
 
-    def draw_character(self):
+    def draw_character(self, weapon_level: int = 0):
         scr = self.screen
         w, h = scr.get_size()
         cx = int(w * HIT_X_RATIO)
@@ -569,6 +652,7 @@ class Renderer:
         bob = int(math.sin(self.char_frame * math.pi / 2) * 4)
         jump_off = int(-55 * (self.char_action_timer / 0.15)) if self.char_action == 'airHit' and self.char_action_timer > 0 else 0
         y = base_y + bob + jump_off
+
         pygame.draw.ellipse(scr, GROUND_COL, (cx - 16, y - 58, 32, 36))
         pygame.draw.circle(scr, WHITE, (cx - 5, y - 43), 4)
         pygame.draw.circle(scr, WHITE, (cx + 7, y - 43), 4)
@@ -579,10 +663,37 @@ class Renderer:
         phase = self.char_frame * math.pi / 2
         pygame.draw.line(scr, ACCENT, (cx - 5, y), (int(cx - 5 + math.sin(phase) * 8), y + 14), 5)
         pygame.draw.line(scr, ACCENT, (cx + 5, y), (int(cx + 5 + math.sin(phase + math.pi) * 8), y + 14), 5)
-        if self.char_action == 'groundHit' and self.char_action_timer > 0:
-            ext = int((0.15 - self.char_action_timer) / 0.15 * 20)
-            pygame.draw.line(scr, PERFECT_COL, (cx + 10, y - 18), (cx + 30 + ext, y - 25), 4)
-            pygame.draw.circle(scr, PERFECT_COL, (cx + 30 + ext, y - 25), 5)
+
+        attacking = self.char_action_timer > 0
+        if attacking:
+            ext = int((0.15 - self.char_action_timer) / 0.15 * 25)
+            weapon_cols = [PERFECT_COL, (255, 180, 0), (255, 100, 50), ACCENT, (0, 255, 200)]
+            wcol = weapon_cols[min(weapon_level, len(weapon_cols) - 1)]
+            thickness = 3 + weapon_level
+            length = 25 + weapon_level * 8 + ext
+
+            if self.char_action == 'groundHit':
+                pygame.draw.line(scr, wcol, (cx + 10, y - 18), (cx + length, y - 22), thickness)
+                if weapon_level >= 2:
+                    pygame.draw.circle(scr, wcol, (cx + length, y - 22), 4 + weapon_level)
+                if weapon_level >= 3:
+                    for i in range(3):
+                        angle = (pygame.time.get_ticks() * 0.01 + i * 2.1)
+                        ox = int(math.cos(angle) * 12)
+                        oy = int(math.sin(angle) * 12)
+                        pygame.draw.circle(scr, wcol, (cx + length + ox, y - 22 + oy), 3)
+            elif self.char_action == 'airHit':
+                pygame.draw.line(scr, wcol, (cx, y - 30), (cx + length, y - 50 - ext), thickness)
+                if weapon_level >= 2:
+                    pygame.draw.circle(scr, wcol, (cx + length, y - 50 - ext), 4 + weapon_level)
+
+        if weapon_level > 0:
+            aura_r = 20 + weapon_level * 5
+            aura = pygame.Surface((aura_r * 2, aura_r * 2), pygame.SRCALPHA)
+            weapon_cols = [PERFECT_COL, (255, 180, 0), (255, 100, 50), ACCENT, (0, 255, 200)]
+            acol = weapon_cols[min(weapon_level, len(weapon_cols) - 1)]
+            pygame.draw.circle(aura, (*acol, 15 + weapon_level * 8), (aura_r, aura_r), aura_r)
+            scr.blit(aura, (cx - aura_r, y - 35 - aura_r))
 
     def draw_particles(self):
         scr = self.screen
@@ -603,7 +714,7 @@ class Renderer:
             self.screen.blit(surf, (int(j.x) - surf.get_width() // 2, int(j.y)))
 
     def draw_hud(self, title: str, artist: str, score: int, combo: int,
-                 accuracy: float, health: float, progress: float):
+                 accuracy: float, health: float, progress: float, weapon_level: int = 0):
         scr = self.screen
         w, h = scr.get_size()
         scr.blit(self.f('sm').render(title, True, WHITE), (20, 15))
@@ -630,7 +741,14 @@ class Renderer:
         hw = int(hp_w * health / 100)
         if hw > 0:
             pygame.draw.rect(scr, hp_col, (hp_x, hp_y, hw, 8))
-        scr.blit(self.f('xs').render("[D/J] Boden  [F/K] Luft  [ESC] Pause", True, (70, 70, 70)), (20, h - 42))
+        if weapon_level > 0:
+            wnames = ['', 'Schwert', 'Flamme', 'Blitz', 'Nova']
+            wn = wnames[min(weapon_level, len(wnames) - 1)]
+            weapon_cols = [PERFECT_COL, (255, 180, 0), (255, 100, 50), ACCENT, (0, 255, 200)]
+            wcol = weapon_cols[min(weapon_level, len(weapon_cols) - 1)]
+            ws = self.f('sm').render(f"⚔ {wn} Lv.{weapon_level}", True, wcol)
+            scr.blit(ws, (w - ws.get_width() - 20, 60))
+        scr.blit(self.f('xs').render("[ESC] Pause  [+/-] Volume", True, (70, 70, 70)), (20, h - 42))
 
     def draw_countdown(self, value: int):
         scr = self.screen

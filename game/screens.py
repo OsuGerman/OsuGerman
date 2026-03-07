@@ -289,11 +289,18 @@ class SettingsScreen(Screen):
         self.add(self._hw_text)
         self._update_hw_text()
 
-        keys_info = [
-            Text("Boden: D / J / ↓    Luft: F / K / ↑    Pause: ESC    Quit: Q    Fullscreen: F11", 13, (140, 140, 140))
-        ]
-        self._keys = keys_info[0]
+        gk = ', '.join(pygame.key.name(k).upper() for k in self.settings.ground_keys)
+        ak = ', '.join(pygame.key.name(k).upper() for k in self.settings.air_keys)
+        self._keys = Text(f"Boden: {gk}    Luft: {ak}    Pause: ESC    Quit: Q    F11: Fullscreen", 13, (140, 140, 140))
         self.add(self._keys)
+
+        self._rebind_ground = Button(f"Boden-Taste ändern", 220, 36, (70, 55, 110), lambda: self._start_rebind('ground'), 13)
+        self._rebind_air = Button(f"Luft-Taste ändern", 220, 36, (70, 55, 110), lambda: self._start_rebind('air'), 13)
+        self.add(self._rebind_ground)
+        self.add(self._rebind_air)
+        self._rebinding: str | None = None
+        self._rebind_text = Text("", 16, ACCENT, True)
+        self.add(self._rebind_text)
 
         self._back_btn = Button("← Zurück & Speichern", 280, 48, ACCENT, self._save_back)
         self.add(self._back_btn)
@@ -339,6 +346,10 @@ class SettingsScreen(Screen):
         self._hw_text.set_text(
             f"Hit Windows → Perfect: ±{hw['perfect']}ms  Great: ±{hw['great']}ms  Good: ±{hw['good']}ms   Approach: {at}ms")
 
+    def _start_rebind(self, which: str):
+        self._rebinding = which
+        self._rebind_text.set_text(f"Drücke eine Taste für {('Boden' if which == 'ground' else 'Luft')}...")
+
     def _save_back(self):
         self.settings.save()
         self.app.go_menu()
@@ -357,7 +368,14 @@ class SettingsScreen(Screen):
         self._hw_text.x, self._hw_text.y = cx, y
         y += 25
         self._keys.x, self._keys.y = cx, y
-        y += 35
+        y += 25
+        self._rebind_ground.x = cx
+        self._rebind_ground.y = y
+        self._rebind_air.x = cx + 240
+        self._rebind_air.y = y
+        self._rebind_text.x = cx + 500
+        self._rebind_text.y = y + 8
+        y += 50
         self._back_btn.x = w / 2 - 140
         self._back_btn.y = y
 
@@ -369,6 +387,24 @@ class SettingsScreen(Screen):
         self._layout()
 
     def on_key(self, key: int, mods: int):
+        if self._rebinding:
+            if key == pygame.K_ESCAPE:
+                self._rebinding = None
+                self._rebind_text.set_text("")
+                return
+            if self._rebinding == 'ground':
+                if key not in self.settings.ground_keys:
+                    self.settings.ground_keys.append(key)
+                self._rebind_text.set_text(f"Boden: + {pygame.key.name(key).upper()}")
+            elif self._rebinding == 'air':
+                if key not in self.settings.air_keys:
+                    self.settings.air_keys.append(key)
+                self._rebind_text.set_text(f"Luft: + {pygame.key.name(key).upper()}")
+            gk = ', '.join(pygame.key.name(k).upper() for k in self.settings.ground_keys)
+            ak = ', '.join(pygame.key.name(k).upper() for k in self.settings.air_keys)
+            self._keys.set_text(f"Boden: {gk}    Luft: {ak}    Pause: ESC    Quit: Q    F11: Fullscreen")
+            self._rebinding = None
+            return
         if key == pygame.K_ESCAPE:
             self._save_back()
 

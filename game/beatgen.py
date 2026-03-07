@@ -111,7 +111,6 @@ def generate_beatmap(audio_path: str, target_difficulty: int = 5) -> dict:
     beat_ms = 60000.0 / bpm
 
     snap = 4 if target_difficulty <= 5 else 8
-    density = 0.5 + target_difficulty * 0.08
 
     quantized = set()
     notes = []
@@ -128,11 +127,26 @@ def generate_beatmap(audio_path: str, target_difficulty: int = 5) -> dict:
         lane = 0 if band == 'low' else 1
         notes.append({'time': round(float(qt), 1), 'lane': int(lane)})
 
-    if target_difficulty >= 6 and len(notes) > 10:
+    total_dur = duration_ms
+    for i in range(len(notes)):
+        progress = notes[i]['time'] / total_dur if total_dur > 0 else 0
+        local_diff = target_difficulty * (0.5 + progress * 0.8)
+        if local_diff >= 4 and i > 0:
+            gap = notes[i]['time'] - notes[i - 1]['time'] if i > 0 else 9999
+            if gap > beat_ms * 1.5 and progress > 0.2:
+                mid = quantize_to_grid((notes[i - 1]['time'] + notes[i]['time']) / 2, beat_ms, snap)
+                if mid not in quantized:
+                    notes.append({'time': round(float(mid), 1), 'lane': 1 - notes[i]['lane']})
+                    quantized.add(mid)
+
+    if target_difficulty >= 6:
         extra = []
         for i in range(0, len(notes) - 1):
+            progress = notes[i]['time'] / total_dur if total_dur > 0 else 0
+            if progress < 0.3:
+                continue
             gap = notes[i + 1]['time'] - notes[i]['time']
-            if gap > beat_ms * 1.5:
+            if gap > beat_ms and progress > 0.5:
                 mid = quantize_to_grid((notes[i]['time'] + notes[i + 1]['time']) / 2, beat_ms, snap)
                 if mid not in quantized:
                     extra.append({'time': round(float(mid), 1), 'lane': 1 - notes[i]['lane']})
