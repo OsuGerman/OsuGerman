@@ -24,7 +24,10 @@ from game.framework import Application
 from game.screens import MenuScreen, SelectScreen, SettingsScreen, ResultScreen
 from game.beatmap import Beatmap
 from game.renderer import Renderer
-from game.gameplay import GameState
+from game.gameplay import GameState  # legacy
+from game.gameplay_mgr import GameplayManager
+from game.chart import load_chart, chart_from_legacy
+from game.entities import GameplayObject
 from game.editor import Editor
 
 MAP_DIR = 'maps'
@@ -36,7 +39,8 @@ class RhythmDash(Application):
         super().__init__(1280, 720, "Rhythm Dash")
         self.settings = Settings()
         self.renderer: Renderer | None = None
-        self.game_state: GameState | None = None
+        self.game_state: GameState | None = None  # legacy
+        self.game_mgr: GameplayManager | None = None
         self.editor: Editor | None = None
         self._game_active = False
         self._editor_active = False
@@ -106,18 +110,39 @@ class RhythmDash(Application):
         self.current_screen = None
 
     def start_game(self, map_info: dict):
-        bm = Beatmap(map_info['path'])
+        path = map_info['path']
+        try:
+            if path.startswith('data/'):
+                chart = load_chart(path)
+            else:
+                chart = chart_from_legacy(path)
+        except Exception as e:
+            print(f"Chart-Fehler: {e}")
+            return
+
+        bm = Beatmap(map_info.get('legacy_path', path))
         af = bm.audio_file
         if not os.path.isabs(af):
             af = os.path.join(os.getcwd(), af)
         if not os.path.exists(af):
             print(f"Audio nicht gefunden: {af}")
             return
-        load_music(af)
+
         set_music_volume(self.settings.music_volume)
         set_sfx_volume(self.settings.sfx_volume)
         self.renderer = Renderer(self.screen)
-        self.game_state = GameState(bm, self.renderer, settings=self.settings)
+
+        gm = GameplayManager(
+            chart=chart, audio_path=af,
+            ground_keys=self.settings.ground_keys,
+            air_keys=self.settings.air_keys,
+            music_volume=self.settings.music_volume,
+            audio_offset=self.settings.audio_offset,
+        )
+        gm.set_bpm(bm.bpm)
+        gm.set_note_speed(self.settings.note_speed)
+        gm.start()
+        self.game_mgr = gm
         self._game_active = True
         self._editor_active = False
         self.current_screen = None
@@ -129,6 +154,75 @@ class RhythmDash(Application):
             if m['title'] == title:
                 self.start_game(m)
                 return
+
+    def _render_gameplay(self):
+        gm = self.game_mgr
+        r = self.renderer
+        w, h = self.screen.get_size()
+        r.draw_background()
+        if gm.screen_flash > 0:
+            flash = pygame.Surface((w, h), pygame.SRCALPHA)
+            flash.fill((255, 255, 255, int(gm.screen_flash * 50)))
+            self.screen.blit(flash, (0, 0))
+        r.draw_lanes()
+        r.draw_receptors(gm.beat_pulse)
+        from game.types import Lane as LaneT
+        hit_x = w * 0.15
+        for obj in gm.active_objects:
+            if obj.resolved:
+                continue
+            x = obj.get_screen_x(gm.song_time, hit_x, gm.note_speed)
+            if x < -60 or x > w + 60:
+                continue
+            y = h * 0.38 if obj.lane == LaneT.AIR else h * 0.68
+            r.draw_notes_as_enemies([obj], gm.song_time, gm.note_speed, gm.beat_pulse)
+            break
+        else:
+            from game.beatmap import Note, LANE_AIR
+            temp_notes = []
+            for obj in gm.active_objects:
+                if obj.resolved:
+                    continue
+                n = Note(obj.hit_time, 1 if obj.lane == LaneT.AIR else 0)
+                temp_notes.append(n)
+            r.draw_notes_as_enemies(temp_notes, gm.song_time, gm.note_speed, gm.beat_pulse)
+        r.draw_character(gm.state.weapon_level)
+        r.draw_particles()
+        if gm._last_judgement and gm._judgement_timer > 0:
+            from game.types import JUDGEMENT_COLORS
+            j, lane = gm._last_judgement
+            col = JUDGEMENT_COLORS[j]
+            r.add_judgment(j.value + '!', col, 1 if lane == LaneT.AIR else 0)
+            gm._last_judgement = None
+        r.draw_judgments()
+        st = gm.state
+        dur = gm.chart.objects[-1].hit_time + 2000 if gm.chart.objects else 1
+        progress = gm.song_time / dur
+        r.draw_hud('', '', st.score, st.combo, st.accuracy, st.hp, progress, st.weapon_level)
+        if gm.countdown > 0 and not gm.started:
+            r.draw_countdown(max(0, int(gm.countdown) + 1))
+        if gm.paused:
+            r.draw_pause()
+        if gm.failed:
+            r.draw_fail()
+
+    def show_result_data(self, result):
+        self._game_active = False
+        self.game_mgr = None
+        if result is None:
+            self.go_select()
+            return
+        result_dict = {
+            'score': result.score, 'max_combo': result.max_combo,
+            'accuracy': result.accuracy, 'perfect': result.perfect,
+            'great': result.great, 'good': result.good, 'miss': result.miss,
+            'grade': result.grade, 'title': result.song_title,
+            'avg_error': result.avg_error, 'unstable_rate': result.unstable_rate,
+            'early': result.early_count, 'late': result.late_count,
+            'timing_errors': result.timing_errors,
+        }
+        from game.screens import ResultScreen
+        self.switch_screen(ResultScreen(self, result_dict))
 
     def show_result(self, result: dict):
         self._game_active = False
@@ -232,26 +326,22 @@ class RhythmDash(Application):
                     self.editor.test_play = False
                 continue
 
-            if self._game_active and self.game_state:
+            if self._game_active and self.game_mgr:
                 if event.type == pygame.KEYDOWN:
                     self._keys_just.add(event.key)
-                    gs = self.game_state
+                    gm = self.game_mgr
                     if event.key == pygame.K_ESCAPE:
-                        if gs.failed:
+                        if gm.failed:
                             self.go_select()
-                        elif gs.paused:
-                            gs.paused = False
-                            unpause_music()
-                        elif gs.started:
-                            gs.paused = True
-                            pause_music()
-                    elif event.key == pygame.K_q and gs.paused:
+                        else:
+                            gm.toggle_pause()
+                    elif event.key == pygame.K_q and gm.paused:
                         stop_music()
                         self.go_select()
-                    elif event.key == pygame.K_r and gs.failed:
+                    elif event.key == pygame.K_r and gm.failed:
                         stop_music()
-                        self.retry_game(gs.beatmap.title)
-                    elif event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
+                        self.retry_game(gm.result.song_title if gm.result else '')
+                    elif event.key in (pygame.K_PLUS, pygame.K_EQUALS):
                         self.settings.music_volume = min(1, self.settings.music_volume + 0.05)
                         set_music_volume(self.settings.music_volume)
                     elif event.key == pygame.K_MINUS:
@@ -273,13 +363,13 @@ class RhythmDash(Application):
     def _update(self, dt: float):
         self.mouse_pos = pygame.mouse.get_pos()
 
-        if self._game_active and self.game_state:
-            gs = self.game_state
-            if not gs.paused and not gs.failed:
-                gs.update(dt, self._keys_just)
+        if self._game_active and self.game_mgr:
+            gm = self.game_mgr
+            if not gm.paused and not gm.failed:
+                gm.update(dt, list(self._keys_just))
                 self.renderer.update(dt)
-            if gs.finished:
-                self.show_result(gs.result)
+            if gm.finished:
+                self.show_result_data(gm.result)
         elif self._editor_active and self.editor:
             self.editor.update()
         elif self.current_screen:
@@ -297,8 +387,8 @@ class RhythmDash(Application):
         self.cursor.update(self.mouse_pos[0], self.mouse_pos[1], dt)
 
     def _render(self):
-        if self._game_active and self.game_state:
-            self.game_state.render()
+        if self._game_active and self.game_mgr:
+            self._render_gameplay()
         elif self._editor_active and self.editor:
             self.editor.render()
         elif self.current_screen:

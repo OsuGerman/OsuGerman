@@ -541,9 +541,39 @@ def _load_map_list() -> list[dict]:
                 'path': path, 'id': d.get('id', ''),
                 'title': d.get('title', '?'), 'artist': d.get('artist', '?'),
                 'bpm': d.get('bpm', 0), 'difficulty': d.get('difficulty', 5),
-                'note_count': len(d.get('notes', [])),
+                'note_count': len(d.get('notes', d.get('objects', []))),
                 'has_audio': os.path.exists(af),
             })
+        except Exception:
+            pass
+    for path in sorted(glob.glob('data/songs/*.json')):
+        try:
+            with open(path) as f:
+                d = json.load(f)
+            af = d.get('audioFile', d.get('audio_file', ''))
+            if not os.path.isabs(af):
+                af = os.path.join(os.getcwd(), af)
+            for diff in d.get('difficulties', d.get('difficultyList', [])):
+                cf = diff.get('chartFile', diff.get('chart_file', ''))
+                note_count = 0
+                if cf and os.path.exists(cf):
+                    try:
+                        with open(cf) as cf_f:
+                            cd = json.load(cf_f)
+                        note_count = len(cd.get('objects', []))
+                    except Exception:
+                        pass
+                maps.append({
+                    'path': cf if cf else path,
+                    'id': d.get('id', '') + '_' + diff.get('id', ''),
+                    'title': d.get('title', '?'),
+                    'artist': d.get('artist', '?'),
+                    'bpm': d.get('bpm', 0),
+                    'difficulty': diff.get('level', 5),
+                    'note_count': note_count,
+                    'has_audio': os.path.exists(af),
+                    'legacy_path': path,
+                })
         except Exception:
             pass
     return maps
