@@ -129,7 +129,6 @@ class GameRenderer:
             bg = pygame.Surface((w, h))
             for y in range(h):
                 t = y / h
-                bg.set_at = None
                 r, g, b = int(8 + t * 18), int(2 + t * 8), int(25 + t * 35)
                 pygame.draw.line(bg, (r, g, b), (0, y), (w, y))
             self._bg_cache = bg
