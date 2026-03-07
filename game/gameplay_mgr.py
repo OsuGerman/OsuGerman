@@ -54,16 +54,17 @@ class GameplayManager:
         self.failed = False
         self.result: ResultData | None = None
         self._music_started = False
-        self._last_judgement: tuple[Judgement, Lane] | None = None
-        self._judgement_timer = 0.0
-
         self._note_speed = 0.42
+        self._renderer = None
 
     def set_bpm(self, bpm: float):
         self._bpm = max(1, bpm)
 
     def set_note_speed(self, speed: float):
         self._note_speed = speed
+
+    def set_renderer(self, renderer):
+        self._renderer = renderer
 
     @property
     def song_time(self) -> float:
@@ -115,8 +116,8 @@ class GameplayManager:
         missed = self.spawn_mgr.check_missed(st, self.hit_windows)
         for obj in missed:
             self.state.on_judgement(Judgement.MISS)
-            self._last_judgement = (Judgement.MISS, obj.lane)
-            self._judgement_timer = 0.6
+            if self._renderer:
+                self._renderer.add_popup('MISS', (255, 82, 82), obj.lane)
 
         ground = any(k in key_events for k in self.ground_keys)
         air = any(k in key_events for k in self.air_keys)
@@ -158,17 +159,15 @@ class GameplayManager:
         self.state.on_judgement(judgement)
         self.timing_records.append(TimingRecord(error))
 
-        self._last_judgement = (judgement, lane)
-        self._judgement_timer = 0.8
-
         if judgement == Judgement.PERFECT:
             self.screen_flash = 0.4
-            play_sfx('perfect')
         elif judgement == Judgement.GREAT:
             self.screen_flash = 0.2
-            play_sfx('great')
-        else:
-            play_sfx('good')
+
+        play_sfx(judgement.value.lower())
+
+        if self._renderer:
+            self._renderer.trigger_hit(lane, judgement, self.state.weapon_level)
 
     def toggle_pause(self):
         if self.paused:
