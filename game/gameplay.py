@@ -7,9 +7,10 @@ from .renderer import Renderer
 
 
 class GameState:
-    def __init__(self, beatmap: Beatmap, renderer: Renderer, music_offset_ms: float = 0):
+    def __init__(self, beatmap: Beatmap, renderer: Renderer, note_speed: float = 0.42, music_offset_ms: float = 0):
         self.beatmap = beatmap
         self.renderer = renderer
+        self.note_speed = note_speed
         self.notes = beatmap.clone_notes()
         self.note_index = 0
         self.music_offset = music_offset_ms
@@ -179,7 +180,7 @@ class GameState:
 
         r.draw_background()
         r.draw_lanes()
-        r.draw_notes(self.notes, self.game_time_ms if self.started else 0)
+        r.draw_notes(self.notes, self.game_time_ms if self.started else 0, self.note_speed)
         r.draw_character()
         r.draw_particles()
         r.draw_judgments()

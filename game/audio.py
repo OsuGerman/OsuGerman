@@ -38,7 +38,7 @@ def get_music_pos_ms() -> float:
 
 
 def set_music_volume(vol: float):
-    pygame.mixer.music.set_volume(vol)
+    pygame.mixer.music.set_volume(max(0.0, min(1.0, vol)))
 
 
 def is_music_playing() -> bool:
