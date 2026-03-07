@@ -100,7 +100,7 @@ def panel(scr, x, y, w, h, bg=C.BG_2, border=C.BORDER, rad=S.RAD, alpha=235):
     s = pygame.Surface((w, h), pygame.SRCALPHA)
     pygame.draw.rect(s, (*bg, alpha), (0, 0, w, h), border_radius=rad)
     if border:
-        pygame.draw.rect(s, (*border, min(255, alpha - 20)), (0, 0, w, h), 2, border_radius=rad)
+        pygame.draw.rect(s, (*border, max(0, min(255, alpha - 20))), (0, 0, w, h), 2, border_radius=rad)
     scr.blit(s, (x, y))
 
 
