@@ -1,0 +1,1031 @@
+{
+  "songId": "inferno_beat",
+  "difficultyId": "normal",
+  "globalOffsetMs": 0,
+  "approachTimeMs": 1200,
+  "hitWindowProfile": {
+    "perfect": 35,
+    "great": 70,
+    "good": 110
+  },
+  "objects": [
+    {
+      "id": "obj_0001",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 0.0,
+      "spawnTime": -1200.0,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0002",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 1411.8,
+      "spawnTime": 211.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0003",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 2823.5,
+      "spawnTime": 1623.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0004",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 3176.5,
+      "spawnTime": 1976.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0005",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 3529.4,
+      "spawnTime": 2329.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0006",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 3882.4,
+      "spawnTime": 2682.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0007",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 4235.3,
+      "spawnTime": 3035.3,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0008",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 4588.2,
+      "spawnTime": 3388.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0009",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 4941.2,
+      "spawnTime": 3741.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0010",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 5294.1,
+      "spawnTime": 4094.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0011",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 5647.1,
+      "spawnTime": 4447.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0012",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 6000.0,
+      "spawnTime": 4800.0,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0013",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 6176.5,
+      "spawnTime": 4976.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0014",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 6352.9,
+      "spawnTime": 5152.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0015",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 6705.9,
+      "spawnTime": 5505.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0016",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 6882.4,
+      "spawnTime": 5682.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0017",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 7058.8,
+      "spawnTime": 5858.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0018",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 7411.8,
+      "spawnTime": 6211.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0019",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 7588.2,
+      "spawnTime": 6388.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0020",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 7764.7,
+      "spawnTime": 6564.7,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0021",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 8117.6,
+      "spawnTime": 6917.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0022",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 8294.1,
+      "spawnTime": 7094.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0023",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 8470.6,
+      "spawnTime": 7270.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0024",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 8823.5,
+      "spawnTime": 7623.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0025",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 9000.0,
+      "spawnTime": 7800.0,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0026",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 9176.5,
+      "spawnTime": 7976.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0027",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 9529.4,
+      "spawnTime": 8329.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0028",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 9705.9,
+      "spawnTime": 8505.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0029",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 9882.4,
+      "spawnTime": 8682.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0030",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 10235.3,
+      "spawnTime": 9035.3,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0031",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 10411.8,
+      "spawnTime": 9211.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0032",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 10588.2,
+      "spawnTime": 9388.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0033",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 10941.2,
+      "spawnTime": 9741.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0034",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 11117.6,
+      "spawnTime": 9917.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0035",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 11294.1,
+      "spawnTime": 10094.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0036",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 11647.1,
+      "spawnTime": 10447.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0037",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 11823.5,
+      "spawnTime": 10623.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0038",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 12000.0,
+      "spawnTime": 10800.0,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0039",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 12352.9,
+      "spawnTime": 11152.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0040",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 12529.4,
+      "spawnTime": 11329.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0041",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 12705.9,
+      "spawnTime": 11505.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0042",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 13058.8,
+      "spawnTime": 11858.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0043",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 13235.3,
+      "spawnTime": 12035.3,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0044",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 13411.8,
+      "spawnTime": 12211.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0045",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 13764.7,
+      "spawnTime": 12564.7,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0046",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 13941.2,
+      "spawnTime": 12741.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0047",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 14117.6,
+      "spawnTime": 12917.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0048",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 14470.6,
+      "spawnTime": 13270.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0049",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 14647.1,
+      "spawnTime": 13447.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0050",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 14823.5,
+      "spawnTime": 13623.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0051",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 15176.5,
+      "spawnTime": 13976.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0052",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 15352.9,
+      "spawnTime": 14152.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0053",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 15529.4,
+      "spawnTime": 14329.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0054",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 15882.4,
+      "spawnTime": 14682.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0055",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 16058.8,
+      "spawnTime": 14858.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0056",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 16235.3,
+      "spawnTime": 15035.3,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0057",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 16588.2,
+      "spawnTime": 15388.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0058",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 16764.7,
+      "spawnTime": 15564.7,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0059",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 16941.2,
+      "spawnTime": 15741.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0060",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 17294.1,
+      "spawnTime": 16094.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0061",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 17470.6,
+      "spawnTime": 16270.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0062",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 17647.1,
+      "spawnTime": 16447.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0063",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 18000.0,
+      "spawnTime": 16800.0,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0064",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 18176.5,
+      "spawnTime": 16976.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0065",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 18352.9,
+      "spawnTime": 17152.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0066",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 18705.9,
+      "spawnTime": 17505.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0067",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 18882.4,
+      "spawnTime": 17682.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0068",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 19058.8,
+      "spawnTime": 17858.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0069",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 19411.8,
+      "spawnTime": 18211.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0070",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 19588.2,
+      "spawnTime": 18388.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0071",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 19764.7,
+      "spawnTime": 18564.7,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0072",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 20117.6,
+      "spawnTime": 18917.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0073",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 20294.1,
+      "spawnTime": 19094.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0074",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 20470.6,
+      "spawnTime": 19270.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0075",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 20823.5,
+      "spawnTime": 19623.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0076",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 21000.0,
+      "spawnTime": 19800.0,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0077",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 21176.5,
+      "spawnTime": 19976.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0078",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 21529.4,
+      "spawnTime": 20329.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0079",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 21705.9,
+      "spawnTime": 20505.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0080",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 21882.4,
+      "spawnTime": 20682.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0081",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 22235.3,
+      "spawnTime": 21035.3,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0082",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 22411.8,
+      "spawnTime": 21211.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0083",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 22588.2,
+      "spawnTime": 21388.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0084",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 22941.2,
+      "spawnTime": 21741.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0085",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 23117.6,
+      "spawnTime": 21917.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0087",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 23294.1,
+      "spawnTime": 22094.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0088",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 23647.1,
+      "spawnTime": 22447.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0089",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 23823.5,
+      "spawnTime": 22623.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0090",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 24000.0,
+      "spawnTime": 22800.0,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0091",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 24352.9,
+      "spawnTime": 23152.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0092",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 24529.4,
+      "spawnTime": 23329.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0094",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 24705.9,
+      "spawnTime": 23505.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0095",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 25058.8,
+      "spawnTime": 23858.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0096",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 25235.3,
+      "spawnTime": 24035.3,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0097",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 25411.8,
+      "spawnTime": 24211.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0098",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 25764.7,
+      "spawnTime": 24564.7,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0099",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 25941.2,
+      "spawnTime": 24741.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0101",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 26117.6,
+      "spawnTime": 24917.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0102",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 26470.6,
+      "spawnTime": 25270.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0103",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 26647.1,
+      "spawnTime": 25447.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0104",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 26823.5,
+      "spawnTime": 25623.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0105",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 27176.5,
+      "spawnTime": 25976.5,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0106",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 27352.9,
+      "spawnTime": 26152.9,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0108",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 27529.4,
+      "spawnTime": 26329.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0109",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 27882.4,
+      "spawnTime": 26682.4,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0110",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 28058.8,
+      "spawnTime": 26858.8,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0111",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 28235.3,
+      "spawnTime": 27035.3,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0112",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 28588.2,
+      "spawnTime": 27388.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0113",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 28764.7,
+      "spawnTime": 27564.7,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0115",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 28941.2,
+      "spawnTime": 27741.2,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0116",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 29294.1,
+      "spawnTime": 28094.1,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0117",
+      "type": "AirEnemy",
+      "lane": "Air",
+      "hitTime": 29470.6,
+      "spawnTime": 28270.6,
+      "actionType": "Tap",
+      "duration": 0
+    },
+    {
+      "id": "obj_0118",
+      "type": "GroundEnemy",
+      "lane": "Ground",
+      "hitTime": 29647.1,
+      "spawnTime": 28447.1,
+      "actionType": "Tap",
+      "duration": 0
+    }
+  ],
+  "events": []
+}
