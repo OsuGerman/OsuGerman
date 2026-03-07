@@ -237,9 +237,11 @@ class RhythmDash(Application):
                             self.go_select()
                         elif gs.paused:
                             gs.paused = False
+                            gs._pause_offset += pygame.time.get_ticks() - gs._pause_start
                             unpause_music()
                         elif gs.started:
                             gs.paused = True
+                            gs._pause_start = pygame.time.get_ticks()
                             pause_music()
                     elif event.key == pygame.K_q and gs.paused:
                         stop_music()
