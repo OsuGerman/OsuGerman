@@ -4,20 +4,24 @@ import numpy as np
 import pygame
 
 _sfx_cache: dict[str, pygame.mixer.Sound] = {}
+_sfx_volume: float = 0.5
+_music_volume: float = 0.7
 
 
 def init_audio():
     pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.mixer.init()
-    pygame.mixer.set_num_channels(16)
+    pygame.mixer.set_num_channels(32)
     _generate_sfx()
 
 
 def load_music(path: str):
     pygame.mixer.music.load(path)
+    pygame.mixer.music.set_volume(_music_volume)
 
 
 def play_music(start_ms: float = 0):
+    pygame.mixer.music.set_volume(_music_volume)
     pygame.mixer.music.play(start=start_ms / 1000.0)
 
 
@@ -38,7 +42,16 @@ def get_music_pos_ms() -> float:
 
 
 def set_music_volume(vol: float):
-    pygame.mixer.music.set_volume(max(0.0, min(1.0, vol)))
+    global _music_volume
+    _music_volume = max(0.0, min(1.0, vol))
+    pygame.mixer.music.set_volume(_music_volume)
+
+
+def set_sfx_volume(vol: float):
+    global _sfx_volume
+    _sfx_volume = max(0.0, min(1.0, vol))
+    for snd in _sfx_cache.values():
+        snd.set_volume(_sfx_volume)
 
 
 def is_music_playing() -> bool:
@@ -54,27 +67,36 @@ def play_sfx(name: str):
 def _generate_sfx():
     sr = 44100
 
-    t = np.linspace(0, 0.12, int(sr * 0.12), dtype=np.float32)
-    env = np.exp(-t * 30)
-    wave = np.sin(2 * np.pi * 880 * t) * 0.5 + np.sin(2 * np.pi * 1320 * t) * 0.25
-    _sfx_cache['perfect'] = _make_sound((wave * env * 0.4).astype(np.float32), sr)
+    t = np.linspace(0, 0.1, int(sr * 0.1), dtype=np.float32)
+    env = np.exp(-t * 25)
+    wave = np.sin(2 * np.pi * 800 * t) * 0.4
+    wave += np.sin(2 * np.pi * 1200 * t) * 0.3
+    wave += np.sin(2 * np.pi * 1600 * t) * 0.15
+    _sfx_cache['perfect'] = _make_sound((wave * env * 0.6).astype(np.float32), sr)
 
-    wave = np.sin(2 * np.pi * 660 * t) * 0.6
-    _sfx_cache['great'] = _make_sound((wave * env * 0.35).astype(np.float32), sr)
+    t2 = np.linspace(0, 0.08, int(sr * 0.08), dtype=np.float32)
+    env2 = np.exp(-t2 * 30)
+    wave2 = np.sin(2 * np.pi * 600 * t2) * 0.5
+    wave2 += np.sin(2 * np.pi * 900 * t2) * 0.2
+    _sfx_cache['great'] = _make_sound((wave2 * env2 * 0.5).astype(np.float32), sr)
 
-    wave = np.sin(2 * np.pi * 440 * t) * 0.5
-    _sfx_cache['good'] = _make_sound((wave * env * 0.3).astype(np.float32), sr)
+    t3 = np.linspace(0, 0.06, int(sr * 0.06), dtype=np.float32)
+    env3 = np.exp(-t3 * 35)
+    wave3 = np.sin(2 * np.pi * 400 * t3) * 0.4
+    _sfx_cache['good'] = _make_sound((wave3 * env3 * 0.4).astype(np.float32), sr)
 
-    t2 = np.linspace(0, 0.15, int(sr * 0.15), dtype=np.float32)
-    env2 = np.exp(-t2 * 20)
-    wave = np.random.uniform(-0.3, 0.3, len(t2)).astype(np.float32) * 0.15
-    wave += np.sin(2 * np.pi * 120 * t2) * 0.2
-    _sfx_cache['miss'] = _make_sound((wave * env2 * 0.25).astype(np.float32), sr)
+    t4 = np.linspace(0, 0.12, int(sr * 0.12), dtype=np.float32)
+    env4 = np.exp(-t4 * 18)
+    wave4 = np.random.uniform(-1, 1, len(t4)).astype(np.float32) * 0.15
+    wave4 += np.sin(2 * np.pi * 100 * t4) * 0.25
+    _sfx_cache['miss'] = _make_sound((wave4 * env4 * 0.35).astype(np.float32), sr)
 
-    t3 = np.linspace(0, 0.05, int(sr * 0.05), dtype=np.float32)
-    env3 = np.exp(-t3 * 60)
-    wave = np.sin(2 * np.pi * 1000 * t3) * 0.3
-    _sfx_cache['tick'] = _make_sound((wave * env3 * 0.2).astype(np.float32), sr)
+    t5 = np.linspace(0, 0.03, int(sr * 0.03), dtype=np.float32)
+    env5 = np.exp(-t5 * 80)
+    wave5 = np.sin(2 * np.pi * 1000 * t5) * 0.3
+    _sfx_cache['tick'] = _make_sound((wave5 * env5 * 0.3).astype(np.float32), sr)
+
+    set_sfx_volume(_sfx_volume)
 
 
 def _make_sound(mono: np.ndarray, sr: int) -> pygame.mixer.Sound:
@@ -123,12 +145,8 @@ def generate_demo_wav(path: str, bpm: float = 99.4, duration_s: float = 60.0):
             out[start:start + bass_len] += np.sin(2 * np.pi * bf * t) * env * 0.18
 
     bar_samples = beat_samples * 4
-    melody_notes = [
-        293.66, 329.63, 369.99, 440.00,
-        392.00, 369.99, 329.63, 293.66,
-        261.63, 293.66, 329.63, 369.99,
-        440.00, 392.00, 329.63, 293.66,
-    ]
+    melody_notes = [293.66, 329.63, 369.99, 440.00, 392.00, 369.99, 329.63, 293.66,
+                    261.63, 293.66, 329.63, 369.99, 440.00, 392.00, 329.63, 293.66]
     eighth = beat_samples // 2
     bars_offset = 4 * bar_samples
     for i, freq in enumerate(melody_notes * (int(duration_s * bpm / 60 / 16) + 1)):
@@ -140,7 +158,6 @@ def generate_demo_wav(path: str, bpm: float = 99.4, duration_s: float = 60.0):
         env = np.exp(-t * 5) * (1 - np.clip(t / (m_len / sr) - 0.8, 0, 1) * 5)
         wave = np.sin(2 * np.pi * freq * t) * 0.12
         wave += np.sin(2 * np.pi * freq * 2 * t) * 0.04
-        wave += np.sin(2 * np.pi * freq * 3 * t) * 0.015
         out[start:start + m_len] += wave * env
 
     pad_freqs = [146.83, 174.61, 220.00, 261.63]
@@ -153,7 +170,6 @@ def generate_demo_wav(path: str, bpm: float = 99.4, duration_s: float = 60.0):
         t = np.arange(p_len) / sr
         env = 0.06 * (1 - np.abs(t / (p_len / sr) - 0.5) * 1.5).clip(0)
         out[start:start + p_len] += np.sin(2 * np.pi * pf * t) * env
-        out[start:start + p_len] += np.sin(2 * np.pi * pf * 1.5 * t) * env * 0.5
 
     out = out / max(np.abs(out).max(), 1e-6) * 0.85
     stereo = np.column_stack([out, out]).astype(np.float64)
@@ -161,45 +177,32 @@ def generate_demo_wav(path: str, bpm: float = 99.4, duration_s: float = 60.0):
     import soundfile as sf
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     sf.write(path, stereo, sr, subtype='PCM_16')
-    print(f"Generated demo WAV: {path} ({duration_s}s at {bpm} BPM)")
 
 
 def generate_demo_beatmap_notes(bpm: float = 99.4, duration_s: float = 60.0):
     beat_ms = 60000.0 / bpm
     notes = []
     total_beats = int(duration_s * bpm / 60)
-
     for i in range(total_beats):
         t = i * beat_ms
         beat_in_bar = i % 4
         bar = i // 4
-
         notes.append({'time': t, 'lane': 0})
-
         if bar >= 2:
-            if beat_in_bar == 1:
+            if beat_in_bar in (1, 3):
                 notes.append({'time': t + beat_ms / 2, 'lane': 1})
-            if beat_in_bar == 3:
-                notes.append({'time': t + beat_ms / 2, 'lane': 1})
-
         if bar >= 4 and bar % 2 == 0:
             if beat_in_bar == 0:
                 notes.append({'time': t + beat_ms / 2, 'lane': 1})
             if beat_in_bar == 2:
                 notes.append({'time': t + beat_ms / 2, 'lane': 0})
-
-        if bar >= 8:
-            if beat_in_bar == 1:
-                notes.append({'time': t, 'lane': 1})
-            if beat_in_bar == 3:
-                notes.append({'time': t, 'lane': 1})
-
+        if bar >= 8 and beat_in_bar in (1, 3):
+            notes.append({'time': t, 'lane': 1})
         if bar >= 12:
             for e in range(4):
                 et = t + e * (beat_ms / 4)
                 if not any(abs(n['time'] - et) < 20 for n in notes):
                     notes.append({'time': et, 'lane': 1 if e % 2 else 0})
-
     notes.sort(key=lambda n: n['time'])
     seen = set()
     unique = []

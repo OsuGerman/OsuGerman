@@ -317,6 +317,8 @@ class SettingsScreen(Screen):
             set_music_volume(ratio)
         elif attr == 'sfx_volume':
             s.sfx_volume = ratio
+            from .audio import set_sfx_volume
+            set_sfx_volume(ratio)
         elif attr == 'audio_offset':
             s.audio_offset = int(-200 + ratio * 400)
         elif attr == 'note_speed':

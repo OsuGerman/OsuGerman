@@ -16,7 +16,7 @@ if sys.platform != 'win32' and not os.environ.get('SDL_AUDIODRIVER'):
 
 import pygame
 from game.config import Settings
-from game.audio import (init_audio, load_music, stop_music, set_music_volume,
+from game.audio import (init_audio, load_music, stop_music, set_music_volume, set_sfx_volume,
                         generate_demo_wav, generate_demo_beatmap_notes)
 from game.framework import Application
 from game.screens import MenuScreen, SelectScreen, SettingsScreen, ResultScreen
@@ -44,6 +44,7 @@ class RhythmDash(Application):
         super().init()
         init_audio()
         set_music_volume(self.settings.music_volume)
+        set_sfx_volume(self.settings.sfx_volume)
         os.makedirs(MAP_DIR, exist_ok=True)
         os.makedirs(SONG_DIR, exist_ok=True)
         self._ensure_demo()
@@ -112,6 +113,7 @@ class RhythmDash(Application):
             return
         load_music(af)
         set_music_volume(self.settings.music_volume)
+        set_sfx_volume(self.settings.sfx_volume)
         self.renderer = Renderer(self.screen)
         self.game_state = GameState(bm, self.renderer, settings=self.settings)
         self._game_active = True
@@ -249,6 +251,12 @@ class RhythmDash(Application):
                     elif event.key == pygame.K_r and gs.failed:
                         stop_music()
                         self.retry_game(gs.beatmap.title)
+                    elif event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
+                        self.settings.music_volume = min(1, self.settings.music_volume + 0.05)
+                        set_music_volume(self.settings.music_volume)
+                    elif event.key == pygame.K_MINUS:
+                        self.settings.music_volume = max(0, self.settings.music_volume - 0.05)
+                        set_music_volume(self.settings.music_volume)
                 continue
 
             if event.type == pygame.KEYDOWN:
