@@ -82,7 +82,8 @@ class App:
 
     def go_select(self):
         self._game_active = self._editor_active = False
-        self._maps = load_all_maps()
+        from game.menu_audio import menu_audio_force_stop
+        self._maps = load_all_maps(self.settings.osu_songs_path)
         self.current_screen = SongSelectScreen(self.screen, self._maps)
 
     def go_settings(self):
@@ -111,13 +112,33 @@ class App:
 
     def start_game(self, map_info: dict):
         path = map_info['path']
-        try:
-            chart = load_chart(path) if 'data/' in path else chart_from_legacy(path)
-        except Exception as e:
-            print(f"Chart error: {e}"); return
 
-        # Find audio file — check multiple sources
-        af = ''
+        # osu! songs: auto-generate chart from audio
+        if map_info.get('is_osu'):
+            ap = map_info.get('audio_path', '')
+            if not ap or not os.path.exists(ap):
+                print(f"osu! audio not found: {ap}"); return
+            from game.mapper import generate_chart as gen_chart
+            try:
+                chart_data = gen_chart(ap, map_info.get('id', 'osu'), 5, 'auto')
+                from game.chart import parse_chart
+                chart = parse_chart(chart_data, 'osu_auto')
+            except Exception as e:
+                print(f"Auto-map failed: {e}"); return
+            # Skip normal chart loading
+            bpm = map_info.get('bpm', 120)
+            af = ap
+        else:
+            try:
+                chart = load_chart(path) if 'data/' in path else chart_from_legacy(path)
+            except Exception as e:
+                print(f"Chart error: {e}"); return
+            af = None  # will be resolved below
+            bpm = None
+
+        # Find audio file (skip if already set by osu! path)
+        if not af:
+            af = ''
         # 1. From map_info (set by load_all_maps)
         if map_info.get('audio_path'):
             af = map_info['audio_path']
@@ -148,12 +169,15 @@ class App:
             print(f"Audio not found: {af}"); return
 
         # Get BPM from chart or JSON
-        bpm = 120
-        try:
-            with open(path) as _f:
-                raw = json.load(_f)
-            bpm = raw.get('bpm', raw.get('_meta', {}).get('bpm', 120))
-        except: pass
+        if not bpm:
+            bpm = 120
+            try:
+                with open(path) as _f:
+                    raw = json.load(_f)
+                bpm = raw.get('bpm', raw.get('_meta', {}).get('bpm', 120))
+            except: pass
+        from game.menu_audio import menu_audio_force_stop
+        menu_audio_force_stop()
         set_music_volume(self.settings.music_volume)
         set_sfx_volume(self.settings.sfx_volume)
         gr = GameRenderer(self.screen)

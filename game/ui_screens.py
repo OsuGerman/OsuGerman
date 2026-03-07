@@ -5,6 +5,8 @@ import pygame
 from .ui_theme import C, F, S, draw_bg, draw_stars, panel, glow_rect, text, button, slider, badge
 from .audio import set_music_volume, set_sfx_volume, play_sfx
 from .ui_sounds import play_ui
+from .menu_audio import menu_audio_play_preview, menu_audio_stop, menu_audio_update, menu_audio_force_stop
+from .osu_scanner import scan_osu_folder
 
 MAP_DIR, SONG_DIR = 'maps', 'songs'
 
@@ -156,6 +158,9 @@ class MainMenuScreen(Base):
 class SongSelectScreen(Base):
     def __init__(self, scr, maps):
         super().__init__(scr); self.maps = maps; self.sel = 0
+        self._last_preview = -1
+        self._bg_img = None
+        self._bg_path = ''
 
     def update(self, dt, events, mouse):
         self._t += dt; self._btns.clear()
@@ -167,6 +172,25 @@ class SongSelectScreen(Base):
         text(self.scr, "Lied Auswählen", 30, 14, F.title(), C.TEXT, shadow=True)
         self._btn("Import", w - 260, 14, 100, 34, 'import', mouse, C.ACCENT_D, F.cap(), icon='♫')
         self._btn("Zurück", w - 140, 14, 110, 34, 'back', mouse, C.BG_3, F.cap(), icon='←')
+
+        # Song preview + background
+        menu_audio_update(dt)
+        if self.maps and self.sel != self._last_preview and 0 <= self.sel < len(self.maps):
+            self._last_preview = self.sel
+            m = self.maps[self.sel]
+            ap = m.get('audio_path', '')
+            if ap and os.path.exists(ap):
+                pt = m.get('preview_time', 30000)
+                menu_audio_play_preview(ap, pt, 25000)
+            bg = m.get('background', '')
+            if bg and bg != self._bg_path and os.path.exists(bg):
+                try:
+                    self._bg_img = pygame.transform.scale(pygame.image.load(bg), (w, h))
+                    self._bg_img.set_alpha(40)
+                    self._bg_path = bg
+                except: self._bg_img = None
+        if self._bg_img:
+            self.scr.blit(self._bg_img, (0, 0))
 
         if not self.maps:
             panel(self.scr, w // 2 - 250, h // 2 - 40, 500, 80, C.BG_2, C.BORDER, S.RAD, 200)
@@ -208,7 +232,7 @@ class SongSelectScreen(Base):
         for ev in events:
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 a = self._click(ev.pos)
-                if a == 'back': return SR('back')
+                if a == 'back': menu_audio_stop(); return SR('back')
                 if a == 'import': return SR('import')
                 if a.startswith('card_'):
                     idx = int(a.split('_')[1])
@@ -292,6 +316,9 @@ class SettingsScreen(Base):
             v = self.s.fps_limit
             text(self.scr, f"{'Unlocked' if v == 0 else str(v)+' FPS'}", cx + 210, cy + 12, F.micro(), C.TEXT_OFF)
             self._btn("Fullscreen (F11)", cx, cy + 55, 200, 32, 'fullscreen', mouse, C.BG_3, F.cap())
+            osu_path = self.s.osu_songs_path or '(nicht gesetzt)'
+            text(self.scr, f"osu! Songs: {osu_path}", cx, cy + 100, F.cap(), C.TEXT_3)
+            self._btn("osu! Ordner wählen", cx, cy + 125, 220, 32, 'set_osu_path', mouse, C.SECONDARY, F.cap())
         elif self.tab == 4:
             toggles = [
                 ("Blitz-Effekte reduzieren", 'reduce_flash', self.s.reduce_flash),
@@ -313,6 +340,14 @@ class SettingsScreen(Base):
                 if a.startswith('tab_'): self.tab = int(a.split('_')[1])
                 elif a == 'save': self.s.save(); return SR('back')
                 elif a == 'fullscreen': return SR('fullscreen')
+                elif a == 'set_osu_path':
+                    try:
+                        import tkinter as tk; from tkinter import filedialog
+                        root = tk.Tk(); root.withdraw(); root.attributes('-topmost', True)
+                        p = filedialog.askdirectory(title="osu! Songs Ordner wählen")
+                        root.destroy()
+                        if p: self.s.osu_songs_path = p; self.s.save()
+                    except: pass
                 elif a == 'reset_keys':
                     self.s.ground_keys = [pygame.K_d, pygame.K_j, pygame.K_DOWN]
                     self.s.air_keys = [pygame.K_f, pygame.K_k, pygame.K_UP]
@@ -449,8 +484,24 @@ class ResultsScreen(Base):
 # MAP LOADER
 # ══════════════════════════════
 
-def load_all_maps():
+def load_all_maps(osu_path: str = ''):
     maps = []
+
+    # osu! Songs folder
+    if osu_path and os.path.isdir(osu_path):
+        osu_songs = scan_osu_folder(osu_path)
+        for s in osu_songs:
+            diff_names = [d.name for d in s.difficulties] if s.difficulties else ['Auto']
+            maps.append({
+                'path': s.difficulties[0].filename if s.difficulties else s.audio_path,
+                'id': s.id, 'title': s.title, 'artist': s.artist,
+                'bpm': s.bpm, 'difficulty': len(s.difficulties),
+                'note_count': 0, 'has_audio': os.path.exists(s.audio_path),
+                'audio_path': s.audio_path, 'background': s.background,
+                'preview_time': s.preview_time, 'is_osu': True,
+                'diff_names': ', '.join(diff_names[:3]),
+            })
+
     for p in sorted(glob.glob(os.path.join(MAP_DIR, '*.json'))):
         try:
             with open(p) as f: d = json.load(f)
