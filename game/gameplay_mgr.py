@@ -1,15 +1,14 @@
-"""Central GameplayManager — coordinates all runtime systems."""
+"""Central GameplayManager — timestamped input, audio-clock timing, immediate feedback."""
 from __future__ import annotations
 import time as _time
 import pygame
-from .types import (GameplayState, ChartData, HitWindowProfile, Lane, ActionType,
-                    Judgement, ResultData, JUDGEMENT_COLORS, InputEvent)
+from .types import (GameplayState, ChartData, Lane, ActionType,
+                    Judgement, ResultData, JUDGEMENT_COLORS)
 from .entities import GameplayObject, SpawnManager
+from .input_sys import InputBuffer, TimestampedInput
 from .audio import (play_music, pause_music, unpause_music, stop_music,
                     get_song_time_ms, is_song_playing, play_sfx,
                     set_music_volume, load_music)
-
-KEY_COOLDOWN_MS = 70
 
 
 class TimingRecord:
@@ -34,18 +33,15 @@ class GameplayManager:
         entities = [GameplayObject(d) for d in chart.objects]
         self.spawn_mgr = SpawnManager(entities, self.approach_time)
 
-        self.ground_keys = ground_keys
-        self.air_keys = air_keys
-        self._lane_cooldown = {Lane.GROUND: 0.0, Lane.AIR: 0.0}
+        self.input_buffer = InputBuffer(ground_keys, air_keys)
 
         self.timing_records: list[TimingRecord] = []
         self.screen_flash = 0.0
         self.beat_pulse = 0.0
         self._last_beat_time = 0.0
         self._bpm = 120
-        for obj in chart.objects:
-            if obj.hit_time > 0:
-                break
+        self._note_speed = 0.42
+        self._renderer = None
 
         self.countdown = 3.0
         self.started = False
@@ -54,31 +50,22 @@ class GameplayManager:
         self.failed = False
         self.result: ResultData | None = None
         self._music_started = False
-        self._note_speed = 0.42
-        self._renderer = None
+        self._song_start_perf = 0.0
 
-    def set_bpm(self, bpm: float):
-        self._bpm = max(1, bpm)
-
-    def set_note_speed(self, speed: float):
-        self._note_speed = speed
-
-    def set_renderer(self, renderer):
-        self._renderer = renderer
+    def set_bpm(self, bpm: float): self._bpm = max(1, bpm)
+    def set_note_speed(self, speed: float): self._note_speed = speed
+    def set_renderer(self, renderer): self._renderer = renderer
 
     @property
     def song_time(self) -> float:
-        if not self._music_started:
-            return 0
+        if not self._music_started: return 0
         return max(0, get_song_time_ms() - self.audio_offset)
 
     @property
-    def note_speed(self) -> float:
-        return self._note_speed
+    def note_speed(self) -> float: return self._note_speed
 
     @property
-    def active_objects(self) -> list[GameplayObject]:
-        return self.spawn_mgr.active_objects
+    def active_objects(self) -> list[GameplayObject]: return self.spawn_mgr.active_objects
 
     def start(self):
         load_music(self.audio_path)
@@ -86,11 +73,15 @@ class GameplayManager:
         self.started = False
         self._music_started = False
 
-    def update(self, dt: float, key_events: list[int]):
-        if self.finished or self.failed:
-            return
-        if self.paused:
-            return
+    def capture_key(self, key: int):
+        """Called IMMEDIATELY on KEYDOWN — timestamps the input NOW."""
+        if self.started and not self.paused and not self.finished and not self.failed:
+            self.input_buffer.capture(key)
+
+    def update(self, dt: float):
+        """Update cycle — processes buffered inputs against song time."""
+        if self.finished or self.failed: return
+        if self.paused: return
 
         if not self.started:
             self.countdown -= dt
@@ -98,10 +89,11 @@ class GameplayManager:
                 self.started = True
                 play_music(0)
                 self._music_started = True
+                self._song_start_perf = _time.perf_counter()
+                self.input_buffer.set_song_start(self._song_start_perf)
             return
 
         st = self.song_time
-        now = _time.perf_counter() * 1000
 
         beat_ms = 60000.0 / self._bpm
         if st - self._last_beat_time >= beat_ms:
@@ -118,16 +110,10 @@ class GameplayManager:
             if self._renderer:
                 self._renderer.add_popup('MISS', (255, 82, 82), obj.lane)
 
-        ground = any(k in key_events for k in self.ground_keys)
-        air = any(k in key_events for k in self.air_keys)
-
-        if ground and now - self._lane_cooldown[Lane.GROUND] >= KEY_COOLDOWN_MS:
-            self._lane_cooldown[Lane.GROUND] = now
-            self._process_input(Lane.GROUND, st)
-
-        if air and now - self._lane_cooldown[Lane.AIR] >= KEY_COOLDOWN_MS:
-            self._lane_cooldown[Lane.AIR] = now
-            self._process_input(Lane.AIR, st)
+        inputs = self.input_buffer.drain()
+        for inp in inputs:
+            input_song_time = inp.timestamp_ms - self.audio_offset
+            self._judge_input(inp.lane, input_song_time)
 
         if self.state.hp <= 0:
             self.failed = True
@@ -136,19 +122,22 @@ class GameplayManager:
 
         if self._music_started and not is_song_playing():
             all_done = all(o.resolved for o in self.spawn_mgr.objects)
-            if all_done or st > self.chart.objects[-1].hit_time + 2000 if self.chart.objects else True:
+            last_time = self.chart.objects[-1].hit_time + 2000 if self.chart.objects else 0
+            if all_done or st > last_time:
                 self._finish()
 
-    def _process_input(self, lane: Lane, song_time: float):
-        obj = self.spawn_mgr.get_hittable(lane, ActionType.TAP, song_time, self.hit_windows)
+    def _judge_input(self, lane: Lane, input_time: float):
+        """Judge a single timestamped input against the closest hittable object."""
+        obj = self.spawn_mgr.get_hittable(lane, ActionType.TAP, input_time, self.hit_windows)
+
         if obj is None:
-            if not any(o.is_hittable and o.lane == lane and
-                       abs(o.hit_time - song_time) < 250
-                       for o in self.spawn_mgr.active_objects):
+            near = any(o.is_hittable and o.lane == lane and abs(o.hit_time - input_time) < 250
+                       for o in self.spawn_mgr.active_objects)
+            if not near:
                 self.state.combo = 0
             return
 
-        error = obj.hit_time - song_time
+        error = obj.hit_time - input_time
         judgement = self.hit_windows.judge(error)
 
         if judgement == Judgement.MISS:
@@ -187,17 +176,14 @@ class GameplayManager:
         avg = sum(errors) / len(errors) if errors else 0
         var = sum((e - avg) ** 2 for e in errors) / len(errors) if errors else 0
         ur = (var ** 0.5) * 10
-
         self.result = ResultData(
-            song_title=self.chart.song_id,
-            difficulty=self.chart.difficulty_id,
-            score=s.score, max_combo=s.max_combo,
-            accuracy=round(s.accuracy, 2),
+            song_title=self.chart.song_id, difficulty=self.chart.difficulty_id,
+            score=s.score, max_combo=s.max_combo, accuracy=round(s.accuracy, 2),
             perfect=s.perfect_count, great=s.great_count,
             good=s.good_count, miss=s.miss_count,
             grade=s.grade, cleared=s.hp > 0,
-            timing_errors=errors[-200:],
-            avg_error=round(avg, 1), unstable_rate=round(ur, 1),
+            timing_errors=errors[-200:], avg_error=round(avg, 1),
+            unstable_rate=round(ur, 1),
             early_count=sum(1 for e in errors if e > 5),
             late_count=sum(1 for e in errors if e < -5),
         )

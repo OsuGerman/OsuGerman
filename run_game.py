@@ -223,8 +223,9 @@ class App:
 
                 if self._game_active and self.game_mgr:
                     if ev.type == pygame.KEYDOWN:
-                        self._keys_just.add(ev.key)
                         gm = self.game_mgr
+                        # CAPTURE INPUT IMMEDIATELY — timestamp is NOW, not next frame
+                        gm.capture_key(ev.key)
                         if ev.key == pygame.K_ESCAPE:
                             if gm.failed: self.go_select()
                             else: gm.toggle_pause()
@@ -244,7 +245,7 @@ class App:
             if self._game_active and self.game_mgr:
                 gm = self.game_mgr
                 if not gm.paused and not gm.failed:
-                    gm.update(dt, list(self._keys_just))
+                    gm.update(dt)
                 if self.game_renderer: self.game_renderer.update(dt)
                 if gm.finished: self.show_result_data(gm.result)
                 else: self.game_renderer.render_frame(gm) if self.game_renderer else None
