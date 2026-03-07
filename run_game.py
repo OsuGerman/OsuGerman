@@ -115,11 +115,45 @@ class App:
             chart = load_chart(path) if 'data/' in path else chart_from_legacy(path)
         except Exception as e:
             print(f"Chart error: {e}"); return
-        bm = Beatmap(map_info.get('legacy_path', path))
-        af = bm.audio_file
-        if not os.path.isabs(af): af = os.path.join(os.getcwd(), af)
-        if not os.path.exists(af):
+
+        # Find audio file — check multiple sources
+        af = ''
+        # 1. From map_info (set by load_all_maps)
+        if map_info.get('audio_path'):
+            af = map_info['audio_path']
+        # 2. From the JSON file directly
+        if not af:
+            try:
+                with open(path) as _f:
+                    raw = json.load(_f)
+                af = raw.get('audio_file', raw.get('audioFile', ''))
+            except: pass
+        # 3. From song metadata if it's a data/ chart
+        if not af and map_info.get('legacy_path'):
+            try:
+                with open(map_info['legacy_path']) as _f:
+                    raw = json.load(_f)
+                af = raw.get('audioFile', raw.get('audio_file', ''))
+            except: pass
+        # 4. Legacy Beatmap fallback
+        if not af:
+            try:
+                bm = Beatmap(path)
+                af = bm.audio_file
+            except: pass
+
+        if not os.path.isabs(af):
+            af = os.path.join(os.getcwd(), af)
+        if not af or not os.path.exists(af):
             print(f"Audio not found: {af}"); return
+
+        # Get BPM from chart or JSON
+        bpm = 120
+        try:
+            with open(path) as _f:
+                raw = json.load(_f)
+            bpm = raw.get('bpm', raw.get('_meta', {}).get('bpm', 120))
+        except: pass
         set_music_volume(self.settings.music_volume)
         set_sfx_volume(self.settings.sfx_volume)
         gr = GameRenderer(self.screen)
@@ -127,7 +161,7 @@ class App:
         gm = GameplayManager(chart=chart, audio_path=af,
                              ground_keys=self.settings.ground_keys, air_keys=self.settings.air_keys,
                              music_volume=self.settings.music_volume, audio_offset=self.settings.audio_offset)
-        gm.set_bpm(bm.bpm)
+        gm.set_bpm(bpm)
         gm.set_note_speed(self.settings.note_speed)
         gm.set_renderer(gr)
         gm._reduce_flash = self.settings.reduce_flash

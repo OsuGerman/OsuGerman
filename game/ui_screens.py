@@ -235,6 +235,7 @@ class SettingsScreen(Base):
 
     def __init__(self, scr, settings):
         super().__init__(scr); self.s = settings; self.tab = 0
+        self._rebinding = None  # 'ground' or 'air' or None
 
     def update(self, dt, events, mouse):
         self._t += dt; self._btns.clear(); self._sliders.clear()
@@ -278,9 +279,14 @@ class SettingsScreen(Base):
             text(self.scr, "Luft-Lane:", cx, cy + 40, F.bold(), C.TEXT_2)
             badge(self.scr, ak, cx + 130, cy + 37, C.ACCENT_D)
             text(self.scr, "Pause: ESC  ·  Quit: Q  ·  Fullscreen: F11  ·  Volume: +/−  ·  Debug: F3", cx, cy + 85, F.cap(), C.TEXT_3)
-            self._btn("+ Boden", cx, cy + 120, 160, 32, 'rebind_ground', mouse, C.SECONDARY, F.cap())
-            self._btn("+ Luft", cx + 180, cy + 120, 160, 32, 'rebind_air', mouse, C.ACCENT_D, F.cap())
-            self._btn("Zurücksetzen", cx + 380, cy + 120, 160, 32, 'reset_keys', mouse, C.DANGER_D, F.cap())
+            if self._rebinding:
+                lane_name = 'Boden' if self._rebinding == 'ground' else 'Luft'
+                panel(self.scr, cx, cy + 110, 500, 40, C.SECONDARY, C.BORDER_A, S.RAD, 220)
+                text(self.scr, f"Drücke eine Taste für {lane_name}... (ESC abbrechen)", cx + 20, cy + 120, F.bold(), C.GOLD)
+            else:
+                self._btn("+ Boden", cx, cy + 120, 160, 32, 'rebind_ground', mouse, C.SECONDARY, F.cap())
+                self._btn("+ Luft", cx + 180, cy + 120, 160, 32, 'rebind_air', mouse, C.ACCENT_D, F.cap())
+                self._btn("Zurücksetzen", cx + 380, cy + 120, 160, 32, 'reset_keys', mouse, C.DANGER_D, F.cap())
         elif self.tab == 3:
             self._sl(cx, cy, sw, mouse, 'fps_limit', "FPS-Limit", self.s.fps_limit / 480)
             v = self.s.fps_limit
@@ -310,6 +316,10 @@ class SettingsScreen(Base):
                 elif a == 'reset_keys':
                     self.s.ground_keys = [pygame.K_d, pygame.K_j, pygame.K_DOWN]
                     self.s.air_keys = [pygame.K_f, pygame.K_k, pygame.K_UP]
+                elif a == 'rebind_ground':
+                    self._rebinding = 'ground'
+                elif a == 'rebind_air':
+                    self._rebinding = 'air'
                 elif a.startswith('toggle_'):
                     attr = a[7:]
                     if hasattr(self.s, attr): setattr(self.s, attr, not getattr(self.s, attr))
@@ -319,8 +329,19 @@ class SettingsScreen(Base):
             if ev.type == pygame.MOUSEMOTION and self._drag:
                 for sr, sn in self._sliders:
                     if sn == self._drag: self._do_drag(sn, ev.pos[0], sr)
-            if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
-                self.s.save(); return SR('back')
+            if ev.type == pygame.KEYDOWN:
+                if self._rebinding:
+                    if ev.key == pygame.K_ESCAPE:
+                        self._rebinding = None
+                    else:
+                        keys = self.s.ground_keys if self._rebinding == 'ground' else self.s.air_keys
+                        if ev.key not in keys:
+                            keys.append(ev.key)
+                            play_ui('confirm')
+                        self._rebinding = None
+                    continue
+                if ev.key == pygame.K_ESCAPE:
+                    self.s.save(); return SR('back')
         self._cursor(mouse)
         return SR()
 
@@ -433,12 +454,15 @@ def load_all_maps():
     for p in sorted(glob.glob(os.path.join(MAP_DIR, '*.json'))):
         try:
             with open(p) as f: d = json.load(f)
-            af = d.get('audio_file', '')
-            maps.append({'path': p, 'id': d.get('id', ''), 'title': d.get('title', '?'),
-                         'artist': d.get('artist', '?'), 'bpm': d.get('bpm', 0),
-                         'difficulty': d.get('difficulty', 5),
-                         'note_count': len(d.get('notes', d.get('objects', []))),
-                         'has_audio': os.path.exists(af)})
+            af = d.get('audio_file', d.get('audioFile', ''))
+            nc = len(d.get('notes', d.get('objects', [])))
+            bpm = d.get('bpm', d.get('_meta', {}).get('bpm', 0))
+            title = d.get('title', d.get('songId', '?'))
+            maps.append({'path': p, 'id': d.get('id', d.get('songId', '')),
+                         'title': title, 'artist': d.get('artist', '?'),
+                         'bpm': bpm, 'difficulty': d.get('difficulty', 5),
+                         'note_count': nc, 'has_audio': os.path.exists(af),
+                         'audio_path': af})
         except: pass
     for p in sorted(glob.glob('data/songs/*.json')):
         try:
@@ -455,6 +479,7 @@ def load_all_maps():
                 maps.append({'path': cf or p, 'id': d.get('id', '') + '_' + diff.get('id', ''),
                              'title': d.get('title', '?'), 'artist': d.get('artist', '?'),
                              'bpm': d.get('bpm', 0), 'difficulty': diff.get('level', 5),
-                             'note_count': nc, 'has_audio': os.path.exists(af)})
+                             'note_count': nc, 'has_audio': os.path.exists(af),
+                             'audio_path': af, 'legacy_path': p})
         except: pass
     return maps

@@ -8,5 +8,20 @@
   "overall_difficulty": 1.6,
   "fullscreen": false,
   "show_timing_bar": true,
-  "show_hit_error": true
+  "fps_limit": 0,
+  "ground_keys": [
+    100,
+    106,
+    1073741905
+  ],
+  "air_keys": [
+    102,
+    107,
+    1073741906
+  ],
+  "debug_overlay": false,
+  "reduce_flash": false,
+  "large_text": false,
+  "high_contrast": false,
+  "auto_retry": false
 }
