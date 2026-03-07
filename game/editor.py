@@ -3,7 +3,7 @@ import os
 import pygame
 from .config import *
 from .beatmap import Beatmap, Note, LANE_AIR, LANE_GROUND
-from .audio import load_music, play_music, pause_music, stop_music, get_music_pos_ms, is_music_playing, play_sfx
+from .audio import load_music, play_music, pause_music, stop_music, get_song_time_ms, is_song_playing, play_sfx
 
 
 class Editor:
@@ -121,7 +121,7 @@ class Editor:
 
     def _place_note(self, lane: int):
         if self.playing:
-            t = get_music_pos_ms()
+            t = get_song_time_ms()
         else:
             t = self.scroll_x / self.zoom * 1000
 
@@ -190,12 +190,12 @@ class Editor:
 
     def update(self):
         if self.playing:
-            pos = get_music_pos_ms()
+            pos = get_song_time_ms()
             if pos >= 0:
                 self.scroll_x = pos / 1000 * self.zoom - self.screen.get_width() * 0.3
                 if self.scroll_x < 0:
                     self.scroll_x = 0
-            if not is_music_playing():
+            if not is_song_playing():
                 self.playing = False
 
     def render(self):
@@ -260,7 +260,7 @@ class Editor:
                 pygame.draw.circle(scr, WHITE, (x, y), r + 3, 2)
 
         if self.playing:
-            pos = get_music_pos_ms()
+            pos = get_song_time_ms()
             if pos >= 0:
                 px = int(pos / 1000 * self.zoom - self.scroll_x + 80)
                 pygame.draw.line(scr, PERFECT_COL, (px, 0), (px, h), 2)
@@ -301,7 +301,7 @@ class Editor:
         scr.blit(lane_air, (10, int(h * 0.3) - 6))
         scr.blit(lane_gnd, (10, int(h * 0.7) - 6))
 
-        pos_ms = get_music_pos_ms() if self.playing else (self.scroll_x / self.zoom * 1000)
+        pos_ms = get_song_time_ms() if self.playing else (self.scroll_x / self.zoom * 1000)
         dur_ms = self.music_len_ms
         pos_s = max(0, pos_ms / 1000)
         dur_s = dur_ms / 1000
