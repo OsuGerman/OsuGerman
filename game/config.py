@@ -63,6 +63,7 @@ class Settings:
         self.fullscreen = False
         self.show_timing_bar = True
         self.show_hit_error = True
+        self.fps_limit = 0
         self.load()
 
     def get_hit_windows(self):

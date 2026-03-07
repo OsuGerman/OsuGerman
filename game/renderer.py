@@ -187,17 +187,38 @@ class Renderer:
     def draw_background(self):
         scr = self.screen
         w, h = scr.get_size()
-        scr.fill(BG)
+
+        if not hasattr(self, '_bg_cache') or self._bg_cache.get_size() != (w, h):
+            bg = pygame.Surface((w, h))
+            for y in range(h):
+                t = y / h
+                r = int(10 + t * 16)
+                g = int(2 + t * 8)
+                b = int(30 + t * 32)
+                pygame.draw.line(bg, (r, g, b), (0, y), (w, y))
+            self._bg_cache = bg
+        scr.blit(self._bg_cache, (0, 0))
+
         for x_r, y_r, sz in self._stars:
             sx = int((x_r * w + self.bg_offset * (0.3 + sz * 0.2)) % w)
             sy = int(y_r * h)
-            alpha = int(40 + sz * 20)
-            pygame.draw.circle(scr, (alpha, alpha, alpha), (sx, sy), int(sz))
+            alpha = min(255, int(50 + sz * 30))
+            pygame.draw.circle(scr, (alpha, alpha, alpha), (sx, sy), max(1, int(sz)))
+
         line_y = int(h * GROUND_Y_RATIO + NOTE_RADIUS + 10)
-        pygame.draw.line(scr, GROUND_DARK, (0, line_y), (w, line_y), 3)
-        for i in range(w // 80):
-            lx = int((i * 80 - self.bg_offset * 1.5) % w)
-            pygame.draw.line(scr, (30, 15, 50), (lx, line_y), (lx - 20, h), 1)
+        grad_h = 40
+        grad_surf = pygame.Surface((w, grad_h), pygame.SRCALPHA)
+        for gy in range(grad_h):
+            a = int(40 * (1 - gy / grad_h))
+            pygame.draw.line(grad_surf, (255, 77, 141, a), (0, gy), (w, gy))
+        scr.blit(grad_surf, (0, line_y))
+        pygame.draw.line(scr, GROUND_COL, (0, line_y), (w, line_y), 2)
+
+        for i in range(w // 100 + 1):
+            lx = int((i * 100 - self.bg_offset * 1.2) % (w + 100)) - 50
+            line_surf = pygame.Surface((1, h - line_y), pygame.SRCALPHA)
+            line_surf.fill((255, 255, 255, 8))
+            scr.blit(line_surf, (lx, line_y))
 
     # --- Screens ---
     def draw_menu(self, mouse: tuple[int, int], sel: int):
@@ -489,36 +510,56 @@ class Renderer:
         hit_surf.fill((224, 64, 251, pulse))
         scr.blit(hit_surf, (hit_x - 20, 0))
 
+    def _get_note_glow(self, col: tuple) -> pygame.Surface:
+        key = col
+        if not hasattr(self, '_glow_cache'):
+            self._glow_cache = {}
+        if key not in self._glow_cache:
+            size = NOTE_RADIUS * 4
+            s = pygame.Surface((size, size), pygame.SRCALPHA)
+            center = size // 2
+            for r in range(NOTE_RADIUS * 2, NOTE_RADIUS // 2, -1):
+                a = int(60 * (1 - r / (NOTE_RADIUS * 2)))
+                pygame.draw.circle(s, (*col, a), (center, center), r)
+            self._glow_cache[key] = s
+        return self._glow_cache[key]
+
     def draw_notes(self, notes: list[Note], game_time_ms: float, speed: float):
         scr = self.screen
         w, h = scr.get_size()
         hit_x = w * HIT_X_RATIO
         gy, ay = h * GROUND_Y_RATIO, h * AIR_Y_RATIO
+
         for note in notes:
             if note.hit or note.missed:
                 continue
             diff = note.time - game_time_ms
             x = hit_x + diff * speed
-            if x < -50 or x > w + 50:
+            if x < -60 or x > w + 60:
                 continue
             y = ay if note.lane == LANE_AIR else gy
             col = AIR_COL if note.lane == LANE_AIR else GROUND_COL
             dark = AIR_DARK if note.lane == LANE_AIR else GROUND_DARK
             ix, iy = int(x), int(y)
-            glow_surf = pygame.Surface((NOTE_RADIUS * 4, NOTE_RADIUS * 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*col, 50), (NOTE_RADIUS * 2, NOTE_RADIUS * 2), NOTE_RADIUS * 2)
-            scr.blit(glow_surf, (ix - NOTE_RADIUS * 2, iy - NOTE_RADIUS * 2))
+
+            proximity = max(0, 1 - abs(diff) / 800)
+            glow = self._get_note_glow(col)
+            glow_scaled = glow.copy()
+            glow_scaled.set_alpha(int(40 + proximity * 80))
+            scr.blit(glow_scaled, (ix - glow.get_width() // 2, iy - glow.get_height() // 2))
+
+            r = NOTE_RADIUS + int(proximity * 3)
             if note.lane == LANE_AIR:
-                pts = [(ix, iy - NOTE_RADIUS), (ix + NOTE_RADIUS, iy), (ix, iy + NOTE_RADIUS), (ix - NOTE_RADIUS, iy)]
+                pts = [(ix, iy - r), (ix + r, iy), (ix, iy + r), (ix - r, iy)]
                 pygame.draw.polygon(scr, col, pts)
-                inner = int(NOTE_RADIUS * 0.55)
+                inner = int(r * 0.5)
                 pts2 = [(ix, iy - inner), (ix + inner, iy), (ix, iy + inner), (ix - inner, iy)]
                 pygame.draw.polygon(scr, dark, pts2)
                 pygame.draw.polygon(scr, WHITE, pts, 2)
             else:
-                pygame.draw.circle(scr, col, (ix, iy), NOTE_RADIUS)
-                pygame.draw.circle(scr, dark, (ix, iy), int(NOTE_RADIUS * 0.55))
-                pygame.draw.circle(scr, WHITE, (ix, iy), NOTE_RADIUS, 2)
+                pygame.draw.circle(scr, col, (ix, iy), r)
+                pygame.draw.circle(scr, dark, (ix, iy), int(r * 0.5))
+                pygame.draw.circle(scr, WHITE, (ix, iy), r, 2)
 
     def draw_character(self):
         scr = self.screen

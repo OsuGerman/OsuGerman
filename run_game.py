@@ -151,13 +151,24 @@ class RhythmDash(Application):
             if not os.path.exists(dest):
                 shutil.copy2(path, dest)
             dest = os.path.abspath(dest)
-            name = os.path.splitext(fname)[0]
-            bm = Beatmap()
-            bm.id = f"map_{pygame.time.get_ticks()}"
-            bm.title = name
-            bm.audio_file = dest
-            bm.bpm = 120
-            bm.difficulty = 5
+            from game.beatgen import generate_beatmap
+            try:
+                print(f"Analysiere Audio: {dest}")
+                map_data = generate_beatmap(dest, target_difficulty=5)
+                map_path = os.path.join(MAP_DIR, f"{map_data['id']}.json")
+                with open(map_path, 'w') as mf:
+                    json.dump(map_data, mf, indent=2)
+                print(f"Auto-Map erstellt: {len(map_data['notes'])} Noten, {map_data['bpm']} BPM")
+                bm = Beatmap(map_path)
+            except Exception as e:
+                print(f"Auto-Map fehlgeschlagen: {e}, erstelle leere Map")
+                name = os.path.splitext(fname)[0]
+                bm = Beatmap()
+                bm.id = f"map_{pygame.time.get_ticks()}"
+                bm.title = name
+                bm.audio_file = dest
+                bm.bpm = 120
+                bm.difficulty = 5
             self._editor_active = True
             self._game_active = False
             self.renderer = Renderer(self.screen)
@@ -288,7 +299,10 @@ class RhythmDash(Application):
         self.running = True
         self._keys_just: set[int] = set()
         while self.running:
-            dt = self.clock.tick(self.fps) / 1000.0
+            fps_cap = self.settings.fps_limit
+            dt = self.clock.tick(fps_cap if fps_cap > 0 else 0) / 1000.0
+            if dt > 0.1:
+                dt = 0.016
             self._keys_just.clear()
             self._process_input()
             self._update(dt)

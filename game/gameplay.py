@@ -126,11 +126,15 @@ class GameState:
                 best = n
                 best_diff = d
                 best_error = n.time - time
-        if best is None:
+        if best is None or best_diff > self.hit_windows['good']:
+            self._on_ghost_tap()
             return
-        if best_diff <= self.hit_windows['good']:
-            best.hit = True
-            self._on_hit(best, best_diff, best_error)
+        best.hit = True
+        self._on_hit(best, best_diff, best_error)
+
+    def _on_ghost_tap(self):
+        self.combo = 0
+        self.health = max(0, self.health - 3)
 
     def _on_hit(self, note: Note, diff: float, error: float):
         hw = self.hit_windows

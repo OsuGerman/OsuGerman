@@ -275,9 +275,9 @@ class SettingsScreen(Screen):
             ("SFX-Lautstärke", 'sfx_volume', 1.0),
             ("Audio-Offset", 'audio_offset', 1.0),
             ("Noten-Speed", 'note_speed', 1.0),
-            ("Hintergrund-Dim", 'bg_dim', 1.0),
             ("Approach Rate", 'approach_rate', 1.0),
             ("Overall Difficulty", 'overall_difficulty', 1.0),
+            ("FPS-Limit (0=Unlocked)", 'fps_limit', 1.0),
         ]
         for label, attr, _ in defs:
             s = Slider(500, label=label, on_change=lambda v, a=attr: self._on_slider(a, v))
@@ -304,9 +304,9 @@ class SettingsScreen(Screen):
         vals = [s.music_volume, s.sfx_volume,
                 (s.audio_offset + 200) / 400,
                 (s.note_speed - 0.2) / 0.8,
-                s.bg_dim,
                 (s.approach_rate - 1) / 9,
-                (s.overall_difficulty - 1) / 9]
+                (s.overall_difficulty - 1) / 9,
+                s.fps_limit / 480]
         for sl, v in zip(self._sliders, vals):
             sl.value = max(0, min(1, v))
 
@@ -327,6 +327,8 @@ class SettingsScreen(Screen):
             s.approach_rate = round(1 + ratio * 9, 1)
         elif attr == 'overall_difficulty':
             s.overall_difficulty = round(1 + ratio * 9, 1)
+        elif attr == 'fps_limit':
+            s.fps_limit = int(ratio * 480)
         self._update_hw_text()
 
     def _update_hw_text(self):
