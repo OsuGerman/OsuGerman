@@ -128,8 +128,10 @@ class App:
         gm.set_bpm(bm.bpm)
         gm.set_note_speed(self.settings.note_speed)
         gm.set_renderer(gr)
+        gm._reduce_flash = self.settings.reduce_flash
         gm.start()
         self.game_mgr = gm
+        self._auto_retry_timer = 0
         self._game_active = True
         self._editor_active = False
         self.current_screen = None
@@ -224,13 +226,15 @@ class App:
                 if self._game_active and self.game_mgr:
                     if ev.type == pygame.KEYDOWN:
                         gm = self.game_mgr
-                        # CAPTURE INPUT IMMEDIATELY — timestamp is NOW, not next frame
                         gm.capture_key(ev.key)
+                        if ev.key == pygame.K_F3:
+                            self.settings.debug_overlay = not self.settings.debug_overlay
+                            continue
                         if ev.key == pygame.K_ESCAPE:
                             if gm.failed: self.go_select()
                             else: gm.toggle_pause()
                         elif ev.key == pygame.K_q and gm.paused: stop_music(); self.go_select()
-                        elif ev.key == pygame.K_r and gm.failed:
+                        elif ev.key == pygame.K_r and (gm.failed or gm.paused):
                             stop_music(); self.retry_game()
                         elif ev.key in (pygame.K_PLUS, pygame.K_EQUALS):
                             self.settings.music_volume = min(1, self.settings.music_volume+0.05)
@@ -247,8 +251,21 @@ class App:
                 if not gm.paused and not gm.failed:
                     gm.update(dt)
                 if self.game_renderer: self.game_renderer.update(dt)
-                if gm.finished: self.show_result_data(gm.result)
-                else: self.game_renderer.render_frame(gm) if self.game_renderer else None
+                if gm.finished:
+                    self.show_result_data(gm.result)
+                elif gm.failed and self.settings.auto_retry:
+                    gm._auto_retry = True
+                    self._auto_retry_timer = getattr(self, '_auto_retry_timer', 0) + dt
+                    if self._auto_retry_timer > 1.5:
+                        self._auto_retry_timer = 0
+                        stop_music(); self.retry_game()
+                    elif self.game_renderer:
+                        self.game_renderer.render_frame(gm)
+                elif self.game_renderer:
+                    self.game_renderer.render_frame(gm)
+                    if self.settings.debug_overlay:
+                        fps = self.clock.get_fps()
+                        self.game_renderer.render_debug(gm, fps)
             elif self._editor_active and self.editor:
                 self.editor.update(); self.editor.render()
             elif self.current_screen:

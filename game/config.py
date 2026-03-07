@@ -65,7 +65,17 @@ class Settings:
         self.fps_limit = 0
         self.ground_keys = [pygame.K_d, pygame.K_j, pygame.K_DOWN]
         self.air_keys = [pygame.K_f, pygame.K_k, pygame.K_UP]
+        self.debug_overlay = False
+        self.reduce_flash = False
+        self.large_text = False
+        self.high_contrast = False
+        self.auto_retry = False
         self.load()
+
+    def get_hit_windows_profile(self):
+        from .types import HitWindowProfile
+        hw = self.get_hit_windows()
+        return HitWindowProfile(hw['perfect'], hw['great'], hw['good'])
 
     def get_hit_windows(self):
         od = self.overall_difficulty

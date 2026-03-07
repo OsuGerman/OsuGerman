@@ -171,7 +171,7 @@ class SongSelectScreen(Base):
 # ══════════════════════════════
 
 class SettingsScreen(Base):
-    TABS = ['Audio', 'Gameplay', 'Controls', 'Grafik']
+    TABS = ['Audio', 'Gameplay', 'Controls', 'Grafik', 'Zugang']
 
     def __init__(self, scr, settings):
         super().__init__(scr)
@@ -229,6 +229,18 @@ class SettingsScreen(Base):
             v = self.s.fps_limit
             text(self.scr, f"{'Unlocked' if v == 0 else str(v)+' FPS'}", cx + 210, cy + 12, F.micro(), C.TEXT_OFF)
             self._btn("Fullscreen (F11)", cx, cy + 55, 200, 34, 'fullscreen', mouse, C.BG_3, F.cap())
+        elif self.tab == 4:
+            toggles = [
+                ("Reduce Flash", 'reduce_flash', self.s.reduce_flash),
+                ("Auto-Retry bei Fail", 'auto_retry', self.s.auto_retry),
+                ("Debug Overlay (F3)", 'debug_overlay', self.s.debug_overlay),
+            ]
+            for i, (label, attr, val) in enumerate(toggles):
+                ty = cy + i * 42
+                text(self.scr, label, cx, ty + 5, F.body(), C.TEXT_2)
+                col = C.SUCCESS if val else C.BG_3
+                txt = "AN" if val else "AUS"
+                self._btn(txt, cx + 280, ty, 70, 30, f'toggle_{attr}', mouse, col, F.cap())
 
         self._btn("Zurück & Speichern", w // 2 - 150, h - 68, 300, S.BTN_H, 'save', mouse, C.PRIMARY, icon='←')
 
@@ -241,6 +253,10 @@ class SettingsScreen(Base):
                 elif a == 'reset_keys':
                     self.s.ground_keys = [pygame.K_d, pygame.K_j, pygame.K_DOWN]
                     self.s.air_keys = [pygame.K_f, pygame.K_k, pygame.K_UP]
+                elif a.startswith('toggle_'):
+                    attr = a[7:]
+                    if hasattr(self.s, attr):
+                        setattr(self.s, attr, not getattr(self.s, attr))
                 for sr, sn in self._sliders:
                     if sr.collidepoint(ev.pos): self._drag = sn; self._do_drag(sn, ev.pos[0], sr)
             if ev.type == pygame.MOUSEBUTTONUP: self._drag = None

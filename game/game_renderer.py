@@ -94,7 +94,7 @@ class GameRenderer:
         s._bg(w,h)
         s._parallax(w,h)
 
-        if gm.screen_flash>0:
+        if gm.screen_flash>0 and not getattr(gm,'_reduce_flash',False):
             fl=pygame.Surface((w,h),pygame.SRCALPHA)
             fl.fill((255,255,255,int(min(60,gm.screen_flash*70))))
             s.scr.blit(fl,(0,0))
@@ -108,9 +108,42 @@ class GameRenderer:
         s._draw_pops()
         s._hud(w,h,gm)
 
+        if gm.started and gm.song_time < 5000:
+            s.render_tutorial(w, h, gm.song_time)
+
         if not gm.started: s._countdown(w,h,gm.countdown)
-        if gm.paused: s._overlay(w,h,"PAUSE","ESC fortsetzen · Q beenden",(200,200,200))
-        if gm.failed: s._overlay(w,h,"FAILED","R nochmal · ESC zurück",(255,70,70))
+        if gm.paused: s._overlay(w,h,"PAUSE","ESC fortsetzen · R retry · Q beenden",(200,200,200))
+        if gm.failed:
+            s._overlay(w,h,"FAILED","R nochmal · ESC zurück",(255,70,70))
+            if hasattr(gm,'_auto_retry') and gm._auto_retry:
+                t=s._f(12).render("Auto-Retry aktiv...",True,_C['gold'])
+                s.scr.blit(t,(w//2-t.get_width()//2,h//2+50))
+
+    def render_debug(s, gm, fps):
+        w,h=s.scr.get_size()
+        lines = [
+            f"FPS: {fps:.0f}",
+            f"SongTime: {gm.song_time:.1f}ms",
+            f"Active: {len(gm.active_objects)}",
+            f"Spawned: {gm.spawn_mgr._spawn_cursor}/{len(gm.spawn_mgr.objects)}",
+            f"HP: {gm.state.hp:.0f}  Combo: {gm.state.combo}  Score: {gm.state.score}",
+            f"P:{gm.state.perfect_count} G:{gm.state.great_count} OK:{gm.state.good_count} M:{gm.state.miss_count}",
+            f"Acc: {gm.state.accuracy:.1f}%  UR: {s._calc_ur(gm):.1f}",
+            f"BPM: {gm._bpm}  Speed: {gm._note_speed}  Offset: {gm.audio_offset}ms",
+        ]
+        dp=pygame.Surface((280,len(lines)*16+8),pygame.SRCALPHA)
+        dp.fill((0,0,0,180))
+        s.scr.blit(dp,(w-284,50))
+        for i,l in enumerate(lines):
+            t=s._f(12).render(l,True,_C['green'] if i==0 else _C['text2'])
+            s.scr.blit(t,(w-280,54+i*16))
+
+    def _calc_ur(s,gm):
+        if not gm.timing_records: return 0
+        errs=[r.error_ms for r in gm.timing_records[-50:]]
+        avg=sum(errs)/len(errs)
+        var=sum((e-avg)**2 for e in errs)/len(errs)
+        return (var**0.5)*10
 
     # ── Background ──
     def _bg(s,w,h):
@@ -384,6 +417,21 @@ class GameRenderer:
         s.scr.blit(s._f(10).render("[ESC] Pause  [+/-] Vol",True,_C['text3']),(16,h-30))
 
     # ── Overlays ──
+    def render_tutorial(s, w, h, song_time):
+        if song_time > 5000: return
+        al = max(0, min(255, int(255 * (1 - song_time / 5000))))
+        hints = [
+            (f"D / J  →  Boden-Gegner treffen", int(h * GY) + 45),
+            (f"F / K  →  Luft-Gegner treffen", int(h * AY) - 45),
+        ]
+        for txt, y in hints:
+            t = s._f(14, True).render(txt, True, _C['gold'])
+            t.set_alpha(al)
+            sh = s._f(14, True).render(txt, True, (0,0,0))
+            sh.set_alpha(al // 3)
+            s.scr.blit(sh, (int(w * HX) + 82, y + 2))
+            s.scr.blit(t, (int(w * HX) + 80, y))
+
     def _countdown(s,w,h,cd):
         ov=pygame.Surface((w,h),pygame.SRCALPHA); ov.fill((0,0,0,140))
         s.scr.blit(ov,(0,0))
