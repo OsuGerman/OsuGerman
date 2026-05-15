@@ -1,8 +1,7 @@
-- 👋 Hi, I’m @OsuGerman
-- 👀 I’m interested in Osu
-- 🌱 I’m currently learning ...
-- 💞️ I’m looking to collaborate on ...
-- 📫 How to reach me: Discord --> Osu German#0001
+- 👋 Hi, I’m @Circleguard
+- 🌱 I’m currently learning Vibe Coding, App Design, Code Debug 
+- 💞️ I’m looking to collaborate on diffrent projekts 
+- 📫 How to reach me: Discord --> circleguard
 
 <!---
 OsuGerman/OsuGerman is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
